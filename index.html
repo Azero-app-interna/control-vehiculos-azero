@@ -2,264 +2,477 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#1769e0">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12233b">
 <link rel="manifest" href="manifest.json">
 <title>AZERO — Control interno</title>
 <style>
+:root{
+  --bg:#eef1f5; --card:#ffffff; --ink:#16202c; --muted:#69747f;
+  --line:#e5e9ee; --brand:#12233b; --accent:#1769e0; --accent2:#0f57c2;
+  --green:#0f7a3d; --red:#c0392b; --amber:#b7791f;
+  --radius:16px; --shadow:0 6px 22px #0b213a12;
+}
 *{box-sizing:border-box}
-body{margin:0;background:#f4f6f8;color:#17202a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-main{max-width:560px;margin:auto;padding:18px}
-.brand{font-size:26px;font-weight:800;margin:8px 0 2px}
-.sub{color:#66717c;margin:0 0 16px}
-.card{background:#fff;border-radius:20px;padding:18px;margin:12px 0;box-shadow:0 5px 20px #0000000f}
-label{font-weight:700;display:block;margin:14px 0 7px}
-select,input{width:100%;padding:14px;border:1px solid #d3d9df;border-radius:12px;background:#fff;font-size:17px}
-button{width:100%;border:0;border-radius:13px;padding:15px;font-size:18px;font-weight:800;background:#1769e0;color:#fff;margin-top:16px;cursor:pointer}
-button:disabled{opacity:.55}
-.secondary{background:#eef3f8;color:#1b2733}
-.green{background:#176b36}
-.danger{background:#b42318}
-.tabs{display:flex;gap:8px}
-.tabs button{margin:0;font-size:15px;padding:11px}
-.subtabs{display:flex;gap:8px;margin-bottom:4px}
-.subtabs button{margin:0;font-size:14px;padding:9px;background:#eef3f8;color:#1b2733}
-.active{background:#17202a!important;color:#fff!important}
-.hidden{display:none}
-.row{padding:13px 2px;border-bottom:1px solid #edf0f2}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:600px;margin:auto;padding:0 16px 40px}
+
+/* ---------- App bar ---------- */
+.appbar{background:var(--brand);color:#fff;margin:0 -16px 0;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+.logo{display:flex;align-items:center;gap:11px}
+.logomark{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,#1769e0,#0d3f86);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;letter-spacing:.5px;box-shadow:inset 0 0 0 2px #ffffff22}
+.logotext b{display:block;font-size:17px;font-weight:800;letter-spacing:2px;line-height:1}
+.logotext span{display:block;font-size:10px;letter-spacing:1.5px;color:#9fb4cf;margin-top:3px;text-transform:uppercase}
+.who{margin-left:auto;text-align:right;font-size:13px;line-height:1.25}
+.who b{display:block;font-size:14px}
+.who span{color:#9fb4cf;font-size:11px}
+.linkbtn{background:none;border:0;color:#9fb4cf;font-size:12px;cursor:pointer;padding:0;margin-top:2px;text-decoration:underline}
+
+/* ---------- Tabs ---------- */
+.tabs{display:flex;gap:6px;background:var(--brand);margin:0 -16px;padding:0 16px 12px;position:sticky;top:70px;z-index:19}
+.tabs button{flex:1;border:0;border-radius:11px;padding:11px 6px;font-size:14px;font-weight:700;background:#ffffff1a;color:#cdd8e6;cursor:pointer}
+.tabs button.active{background:#fff;color:var(--brand)}
+
+/* ---------- Cards ---------- */
+.card{background:var(--card);border-radius:var(--radius);padding:18px;margin:16px 0;box-shadow:var(--shadow)}
+.card h2{margin:0 0 4px;font-size:18px}
+.card .hint{color:var(--muted);font-size:13px;margin:0 0 8px}
+label{font-weight:700;display:block;margin:14px 0 7px;font-size:14px}
+select,input{width:100%;padding:14px;border:1px solid #d5dbe2;border-radius:12px;background:#fff;font-size:16px;color:var(--ink)}
+button.primary,button.big{width:100%;border:0;border-radius:13px;padding:15px;font-size:17px;font-weight:800;background:var(--accent);color:#fff;margin-top:16px;cursor:pointer}
+button.primary:active{background:var(--accent2)}
+button:disabled{opacity:.5}
+.subtabs{display:flex;gap:8px;margin-bottom:6px}
+.subtabs button{flex:1;border:0;border-radius:10px;padding:10px;font-size:14px;font-weight:700;background:#eef2f7;color:#38424e;cursor:pointer}
+.subtabs button.active{background:var(--brand);color:#fff}
+
+/* ---------- Lists ---------- */
+.row{padding:13px 2px;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}
-.vehicle{font-weight:800}
-.meta,.small{color:#68737d;font-size:14px}
-.badge{display:inline-block;background:#edf3ff;color:#1769e0;border-radius:20px;padding:4px 9px;font-size:12px;font-weight:700;margin-left:5px}
-.badge.in{background:#e8f7ed;color:#176b36}
-.badge.out{background:#fff1f1;color:#b42318}
-.rowbtn{width:auto;padding:9px 16px;font-size:14px;margin:8px 0 0}
-.ok{display:none;background:#e8f7ed;color:#176b36;padding:12px;border-radius:11px;margin-top:14px;font-weight:700}
-.error{display:none;background:#fff1f1;color:#b42318;padding:12px;border-radius:11px;margin-top:14px}
-.gps{background:#f5f8fc;border:1px solid #e2e9f1;border-radius:12px;padding:11px;margin-top:12px;font-size:14px;color:#3a4753}
-.btnrow{display:flex;gap:10px}
-.btnrow button{flex:1}
+.row .t{font-weight:700}
+.row .m{color:var(--muted);font-size:13px;margin-top:2px}
+.row .d{color:#94a0ac;font-size:12px;margin-top:2px}
+.badge{display:inline-block;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:800;margin-left:4px;vertical-align:middle}
+.b-ok{background:#e6f5ec;color:var(--green)}
+.b-use{background:#fdeede;color:var(--amber)}
+.b-rep{background:#fdeaea;color:var(--red)}
+.b-in{background:#e6f5ec;color:var(--green)}
+.b-out{background:#fdeaea;color:var(--red)}
+.b-veh{background:#e7effc;color:var(--accent)}
+.rowbtn{width:auto;padding:8px 15px;font-size:13px;font-weight:700;border:0;border-radius:10px;background:#eef2f7;color:#25303c;cursor:pointer;margin-top:9px}
+.rowbtn.blue{background:var(--accent);color:#fff}
+.rowbtn.grn{background:var(--green);color:#fff}
+.flex{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+
+.btnrow{display:flex;gap:10px;margin-top:16px}
+.btnrow button{flex:1;border:0;border-radius:13px;padding:16px;font-size:17px;font-weight:800;color:#fff;cursor:pointer}
+.b-entrada{background:var(--green)}
+.b-salida{background:var(--red)}
+
+.gps{background:#f2f6fb;border:1px solid #e0e8f1;border-radius:12px;padding:11px;margin-top:12px;font-size:13px;color:#3a4b5c}
+.ok{display:none;background:#e6f5ec;color:var(--green);padding:12px;border-radius:11px;margin-top:14px;font-weight:700;font-size:14px}
+.error{display:none;background:#fdeaea;color:var(--red);padding:12px;border-radius:11px;margin-top:14px;font-size:14px}
+.empty{color:var(--muted);font-size:14px;padding:8px 0}
+.hidden{display:none}
+.tools-obra{margin:0 0 6px}
+.count{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:18px 2px 4px}
+.center{max-width:380px;margin:16vh auto 0;text-align:center}
+.center .logomark{width:64px;height:64px;font-size:24px;border-radius:16px;margin:0 auto 16px}
+.center h1{font-size:22px;margin:0 0 6px}
+.center p{color:var(--muted);font-size:14px;margin:0 0 18px}
+a.maps{color:var(--accent);text-decoration:none;font-size:12px}
 </style>
 </head>
 <body>
 <main>
-  <div class="brand">🚚 AZERO — Control interno</div>
-  <p class="sub">Vehículos · Fichaje · Historial</p>
-
-  <div class="tabs">
-    <button id="tabVeh" class="active">Vehículos</button>
-    <button id="tabFic" class="secondary">Fichaje</button>
-    <button id="tabHis" class="secondary">Historial</button>
+  <div class="appbar">
+    <div class="logo">
+      <div class="logomark">AZ</div>
+      <div class="logotext"><b>AZERO</b><span>Control interno</span></div>
+    </div>
+    <div class="who" id="who"></div>
   </div>
-
-  <!-- ===================== VEHÍCULOS ===================== -->
-  <section id="vehSec" class="card">
-    <div class="subtabs">
-      <button id="subCoger" class="active">Coger</button>
-      <button id="subUso" class="secondary">En uso</button>
-    </div>
-
-    <div id="cogerView">
-      <label>Conductor</label>
-      <select id="driver"><option>Cargando...</option></select>
-      <label>Vehículo disponible</label>
-      <select id="vehicle"><option>Cargando...</option></select>
-      <div id="plate" class="small"></div>
-      <button id="btnCoger">COGER VEHÍCULO</button>
-    </div>
-
-    <div id="usoView" class="hidden">
-      <div id="usoList"><p class="small">Cargando...</p></div>
-    </div>
-
-    <div id="vehOk" class="ok"></div>
-    <div id="vehErr" class="error"></div>
-  </section>
-
-  <!-- ===================== FICHAJE ===================== -->
-  <section id="ficSec" class="card hidden">
-    <label>Trabajador</label>
-    <select id="worker"><option>Cargando...</option></select>
-    <div id="gps" class="gps">📍 Ubicación: pulsa "Actualizar ubicación".</div>
-    <button id="btnGps" class="secondary">Actualizar ubicación</button>
-    <div class="btnrow">
-      <button id="btnEntrada" class="green">FICHAR ENTRADA</button>
-      <button id="btnSalida" class="danger">FICHAR SALIDA</button>
-    </div>
-    <div id="ficOk" class="ok"></div>
-    <div id="ficErr" class="error"></div>
-  </section>
-
-  <!-- ===================== HISTORIAL ===================== -->
-  <section id="hisSec" class="card hidden">
-    <label>Buscar en el historial</label>
-    <input id="filter" placeholder="Conductor, vehículo, matrícula o tipo">
-    <div id="hisList"><p class="small">Cargando...</p></div>
-  </section>
+  <div class="tabs" id="tabs"></div>
+  <div id="app"></div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SB_URL="https://sujletbuufvaajommusm.supabase.co",
-      SB_KEY="sb_publishable_KooKb58QlNiOATewpMFv6Q_kcU-ASuY",
-      db=supabase.createClient(SB_URL,SB_KEY);
+/* =====================================================================
+   CONFIG
+   ===================================================================== */
+const SB_URL="https://sujletbuufvaajommusm.supabase.co";
+const SB_KEY="sb_publishable_KooKb58QlNiOATewpMFv6Q_kcU-ASuY";
+const ADMIN_PASS="azero2026";              // <-- contraseña del panel admin (cámbiala aquí)
+const db=supabase.createClient(SB_URL,SB_KEY);
 
-let vehiculos=[], conductores=[], condMap={}, vehMap={}, lastPos=null, hist=[];
-
-const $=id=>document.getElementById(id);
-function showMsg(el,txt,isErr){el.textContent=txt;el.style.display="block";if(!isErr)setTimeout(()=>el.style.display="none",2200);}
-function hideMsg(...els){els.forEach(e=>e.style.display="none");}
+/* =====================================================================
+   ESTADO / UTILIDADES
+   ===================================================================== */
+const $=s=>document.querySelector(s);
+const el=(h)=>{const d=document.createElement("div");d.innerHTML=h.trim();return d.firstChild;};
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(ts){return ts?new Date(ts).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):"";}
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
 
-/* ---------- carga de datos base ---------- */
+let worker=null;      // {id,nombre} en modo personal
+let isAdmin=false;
+let vehiculos=[], condMap={}, vehMap={}, lastPos=null;
+
+const params=new URLSearchParams(location.search);
+
+/* =====================================================================
+   ARRANQUE
+   ===================================================================== */
+async function boot(){
+  // token por URL o guardado en el móvil
+  let token=params.get("u");
+  if(token){ lsSet("azero_token",token); }
+  else if(!params.has("admin")){ token=lsGet("azero_token"); }
+
+  if(params.has("admin")){ return startAdmin(); }
+
+  if(token){
+    const {data,error}=await db.from("conductores").select("id,nombre").eq("token",token).limit(1);
+    if(!error && data && data.length){ worker=data[0]; return startPersonal(); }
+    lsDel("azero_token");
+    return renderCenter("Enlace no válido","Este enlace personal no es correcto. Pide a administración que te envíe el tuyo.",true);
+  }
+  // sin token -> entrada de administrador
+  startAdmin();
+}
+
+/* =====================================================================
+   PANTALLAS "CENTRO" (login / avisos)
+   ===================================================================== */
+function renderCenter(title,text,showAdminLink){
+  $("#tabs").innerHTML=""; $("#who").innerHTML="";
+  $("#app").innerHTML=`
+    <div class="center">
+      <div class="logomark">AZ</div>
+      <h1>${esc(title)}</h1>
+      <p>${esc(text)}</p>
+      ${showAdminLink?'<button class="linkbtn" style="color:var(--accent);font-size:14px" onclick="location.search=\'?admin=1\'">Entrar como administrador</button>':''}
+    </div>`;
+}
+
+function startAdmin(){
+  worker=null;
+  if(lsGet("azero_admin")==="1"){ isAdmin=true; return renderAdmin(); }
+  $("#tabs").innerHTML=""; $("#who").innerHTML="";
+  $("#app").innerHTML=`
+    <div class="center">
+      <div class="logomark">AZ</div>
+      <h1>Administrador</h1>
+      <p>Introduce la contraseña para ver los registros.</p>
+      <input id="pass" type="password" placeholder="Contraseña" autocomplete="off">
+      <button class="primary" onclick="tryAdmin()">Entrar</button>
+      <div id="passErr" class="error"></div>
+    </div>`;
+  const i=$("#pass"); i.addEventListener("keydown",e=>{if(e.key==="Enter")tryAdmin();});
+  i.focus();
+}
+function tryAdmin(){
+  if($("#pass").value===ADMIN_PASS){ lsSet("azero_admin","1"); isAdmin=true; renderAdmin(); }
+  else{ const e=$("#passErr"); e.textContent="Contraseña incorrecta."; e.style.display="block"; }
+}
+window.tryAdmin=tryAdmin;
+function adminLogout(){ lsDel("azero_admin"); location.search=""; }
+window.adminLogout=adminLogout;
+
+/* =====================================================================
+   CARGA DE DATOS BASE
+   ===================================================================== */
 async function loadBase(){
   const [v,c]=await Promise.all([
     db.from("vehiculos").select("id,nombre,matricula,activo,en_uso,conductor_actual_id").eq("activo",true).order("nombre"),
-    db.from("conductores").select("id,nombre").eq("activo",true).order("nombre")
+    db.from("conductores").select("id,nombre").order("nombre")
   ]);
   if(v.error) throw v.error;
   if(c.error) throw c.error;
-  vehiculos=v.data; conductores=c.data;
-  condMap={}; conductores.forEach(x=>condMap[x.id]=x.nombre);
+  vehiculos=v.data;
+  condMap={}; c.data.forEach(x=>condMap[x.id]=x.nombre);
   vehMap={}; vehiculos.forEach(x=>vehMap[x.id]=x);
-
-  const condOpts='<option value="">Selecciona...</option>'+conductores.map(x=>`<option value="${x.id}">${x.nombre}</option>`).join("");
-  $("driver").innerHTML=condOpts;
-  $("worker").innerHTML=condOpts;
-  renderCoger(); renderUso();
 }
 
-/* ---------- Vehículos: Coger ---------- */
-function renderCoger(){
+/* =====================================================================
+   MODO PERSONAL (trabajador)
+   ===================================================================== */
+let pTab="veh";
+function startPersonal(){
+  $("#who").innerHTML=`<b>${esc(worker.nombre)}</b><span>Tu acceso personal</span>`;
+  $("#tabs").innerHTML=`
+    <button data-t="veh" onclick="pGo('veh')">Vehículos</button>
+    <button data-t="fic" onclick="pGo('fic')">Fichaje</button>
+    <button data-t="herr" onclick="pGo('herr')">Herramientas</button>`;
+  pGo("veh");
+}
+function pGo(t){ pTab=t; [...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  if(t==="veh")pVeh(); if(t==="fic")pFic(); if(t==="herr")pHerr(); }
+window.pGo=pGo;
+
+/* --- Vehículos (personal) --- */
+let vSub="coger";
+async function pVeh(){
+  $("#app").innerHTML=`
+    <div class="card">
+      <div class="subtabs">
+        <button id="sc" class="${vSub==='coger'?'active':''}" onclick="vSet('coger')">Coger</button>
+        <button id="su" class="${vSub==='uso'?'active':''}" onclick="vSet('uso')">En uso</button>
+      </div>
+      <div id="vbody"><p class="empty">Cargando...</p></div>
+      <div id="vOk" class="ok"></div><div id="vErr" class="error"></div>
+    </div>`;
+  try{ await loadBase(); vSet(vSub); }
+  catch(e){ msg("#vErr","No se han podido cargar los datos: "+e.message,true); }
+}
+function vSet(s){ vSub=s; $("#sc").classList.toggle("active",s==="coger"); $("#su").classList.toggle("active",s==="uso");
+  s==="coger"?vCoger():vUso(); }
+window.vSet=vSet;
+
+function vCoger(){
   const libres=vehiculos.filter(x=>!x.en_uso);
-  $("vehicle").innerHTML='<option value="">Selecciona vehículo</option>'+
-    libres.map(x=>`<option value="${x.id}">${x.nombre} — ${x.matricula}</option>`).join("");
-  $("plate").textContent="";
+  $("#vbody").innerHTML=`
+    <label>Vehículo disponible</label>
+    <select id="veh"><option value="">Selecciona vehículo</option>
+      ${libres.map(x=>`<option value="${x.id}">${esc(x.nombre)} — ${esc(x.matricula)}</option>`).join("")}</select>
+    <button class="primary" onclick="coger()">COGER VEHÍCULO</button>
+    <p class="hint" style="margin-top:10px">Quedará registrado a tu nombre (${esc(worker.nombre)}) con la fecha y hora.</p>`;
 }
-$("vehicle").onchange=()=>{const v=vehMap[$("vehicle").value];$("plate").textContent=v?"Matrícula: "+v.matricula:"";};
+async function coger(){
+  const vid=+$("#veh").value; if(!vid){msg("#vErr","Selecciona un vehículo.",true);return;}
+  const b=event.target; b.disabled=true;
+  const r1=await db.from("registros").insert({conductor_id:worker.id,vehiculo_id:vid});
+  if(r1.error){b.disabled=false;return msg("#vErr",r1.error.message,true);}
+  const r2=await db.from("vehiculos").update({en_uso:true,conductor_actual_id:worker.id}).eq("id",vid);
+  b.disabled=false;
+  if(r2.error)return msg("#vErr",r2.error.message,true);
+  msg("#vOk","✅ "+vehMap[vid].nombre+" cogido y registrado.");
+  await loadBase(); vSet("coger");
+}
+window.coger=coger;
 
-$("btnCoger").onclick=async()=>{
-  hideMsg($("vehErr"),$("vehOk"));
-  const cid=+$("driver").value, vid=+$("vehicle").value;
-  if(!cid||!vid){showMsg($("vehErr"),"Selecciona conductor y vehículo.",true);return;}
-  $("btnCoger").disabled=true;
-  const r1=await db.from("registros").insert({conductor_id:cid,vehiculo_id:vid});
-  if(r1.error){$("btnCoger").disabled=false;showMsg($("vehErr"),r1.error.message,true);return;}
-  const r2=await db.from("vehiculos").update({en_uso:true,conductor_actual_id:cid}).eq("id",vid);
-  $("btnCoger").disabled=false;
-  if(r2.error){showMsg($("vehErr"),r2.error.message,true);return;}
-  showMsg($("vehOk"),"✅ "+vehMap[vid].nombre+" asignado a "+condMap[cid]);
-  $("driver").value="";$("vehicle").value="";$("plate").textContent="";
-  await loadBase();
-};
-
-/* ---------- Vehículos: En uso ---------- */
-async function renderUso(){
+async function vUso(){
   const enUso=vehiculos.filter(x=>x.en_uso);
-  if(!enUso.length){$("usoList").innerHTML='<p class="small">No hay vehículos en uso ahora mismo.</p>';return;}
-  // buscar registros abiertos para saber desde cuándo
   const reg=await db.from("registros").select("vehiculo_id,created_at").is("fecha_devolucion",null).order("created_at",{ascending:false});
-  const desde={}; if(!reg.error){reg.data.forEach(r=>{if(!(r.vehiculo_id in desde))desde[r.vehiculo_id]=r.created_at;});}
-  $("usoList").innerHTML=enUso.map(v=>`
-    <div class="row">
-      <div class="vehicle">${v.nombre} <span class="badge">${v.matricula}</span></div>
-      <div class="meta">Conductor: ${condMap[v.conductor_actual_id]||"—"}${desde[v.id]?" · desde "+fmt(desde[v.id]):""}</div>
-      <button class="rowbtn secondary" onclick="devolver(${v.id})">Devolver</button>
-    </div>`).join("");
+  const desde={}; if(!reg.error)reg.data.forEach(r=>{if(!(r.vehiculo_id in desde))desde[r.vehiculo_id]=r.created_at;});
+  if(!enUso.length){$("#vbody").innerHTML='<p class="empty">No hay vehículos en uso ahora mismo.</p>';return;}
+  $("#vbody").innerHTML=enUso.map(v=>`
+    <div class="row"><div class="flex"><div>
+      <div class="t">${esc(v.nombre)} <span class="badge b-veh">${esc(v.matricula)}</span></div>
+      <div class="m">Conductor: ${esc(condMap[v.conductor_actual_id]||"—")}${desde[v.id]?" · desde "+fmt(desde[v.id]):""}</div>
+    </div><button class="rowbtn grn" onclick="devolver(${v.id})">Devolver</button></div></div>`).join("");
 }
-
 async function devolver(vid){
-  hideMsg($("vehErr"),$("vehOk"));
   const r1=await db.from("registros").update({fecha_devolucion:new Date().toISOString()}).eq("vehiculo_id",vid).is("fecha_devolucion",null);
-  if(r1.error){showMsg($("vehErr"),r1.error.message,true);return;}
+  if(r1.error)return msg("#vErr",r1.error.message,true);
   const r2=await db.from("vehiculos").update({en_uso:false,conductor_actual_id:null}).eq("id",vid);
-  if(r2.error){showMsg($("vehErr"),r2.error.message,true);return;}
-  showMsg($("vehOk"),"✅ "+(vehMap[vid]?vehMap[vid].nombre:"Vehículo")+" devuelto");
-  await loadBase();
+  if(r2.error)return msg("#vErr",r2.error.message,true);
+  msg("#vOk","✅ "+(vehMap[vid]?vehMap[vid].nombre:"Vehículo")+" devuelto.");
+  await loadBase(); vSet("uso");
 }
 window.devolver=devolver;
 
-/* ---------- Fichaje: GPS ---------- */
-function captureGps(silent){
-  if(!navigator.geolocation){$("gps").textContent="📍 Este dispositivo no permite ubicación.";return;}
-  $("gps").textContent="📍 Obteniendo ubicación...";
+/* --- Fichaje (personal) --- */
+function pFic(){
+  $("#app").innerHTML=`
+    <div class="card">
+      <h2>Fichaje</h2>
+      <p class="hint">${esc(worker.nombre)} — pulsa entrada o salida.</p>
+      <div id="gps" class="gps">📍 Preparando ubicación…</div>
+      <button class="rowbtn" style="margin-top:10px" onclick="captureGps(false)">Actualizar ubicación</button>
+      <div class="btnrow">
+        <button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button>
+        <button class="b-salida" onclick="fichar('salida')">SALIDA</button>
+      </div>
+      <div id="fOk" class="ok"></div><div id="fErr" class="error"></div>
+    </div>
+    <div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
+  if(!lastPos)captureGps(true);
+  loadMisFichajes();
+}
+function captureGps(){
+  if(!navigator.geolocation){$("#gps").textContent="📍 Este dispositivo no permite ubicación.";return;}
+  $("#gps").textContent="📍 Obteniendo ubicación…";
   navigator.geolocation.getCurrentPosition(
     p=>{lastPos={lat:p.coords.latitude,lng:p.coords.longitude,precision_m:Math.round(p.coords.accuracy)};
-        $("gps").textContent="📍 Ubicación lista (precisión ±"+lastPos.precision_m+" m)";},
-    e=>{lastPos=null;$("gps").textContent="📍 Sin ubicación ("+e.message+"). Puedes fichar igualmente.";},
-    {enableHighAccuracy:true,timeout:10000,maximumAge:0}
-  );
+        $("#gps").textContent="📍 Ubicación lista (±"+lastPos.precision_m+" m)";},
+    e=>{lastPos=null;$("#gps").textContent="📍 Sin ubicación ("+e.message+"). Puedes fichar igualmente.";},
+    {enableHighAccuracy:true,timeout:10000,maximumAge:0});
 }
-$("btnGps").onclick=()=>captureGps(false);
-
+window.captureGps=captureGps;
 async function fichar(tipo){
-  hideMsg($("ficErr"),$("ficOk"));
-  const tid=+$("worker").value;
-  if(!tid){showMsg($("ficErr"),"Selecciona el trabajador.",true);return;}
-  $("btnEntrada").disabled=$("btnSalida").disabled=true;
-  const rec={trabajador_id:tid,tipo:tipo};
+  const rec={trabajador_id:worker.id,tipo};
   if(lastPos){rec.lat=lastPos.lat;rec.lng=lastPos.lng;rec.precision_m=lastPos.precision_m;}
   const {error}=await db.from("fichajes").insert(rec);
-  $("btnEntrada").disabled=$("btnSalida").disabled=false;
-  if(error){showMsg($("ficErr"),error.message,true);return;}
-  showMsg($("ficOk"),"✅ "+(tipo==="entrada"?"Entrada":"Salida")+" registrada — "+condMap[tid]+(lastPos?"":" (sin ubicación)"));
+  if(error)return msg("#fErr",error.message,true);
+  msg("#fOk","✅ "+(tipo==="entrada"?"Entrada":"Salida")+" registrada"+(lastPos?"":" (sin ubicación)"));
+  loadMisFichajes();
 }
-$("btnEntrada").onclick=()=>fichar("entrada");
-$("btnSalida").onclick=()=>fichar("salida");
+window.fichar=fichar;
+async function loadMisFichajes(){
+  const {data,error}=await db.from("fichajes").select("tipo,lat,lng,precision_m,created_at").eq("trabajador_id",worker.id).order("created_at",{ascending:false}).limit(30);
+  if(error){$("#misFic").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}
+  if(!data.length){$("#misFic").innerHTML='<p class="empty">Aún no tienes fichajes.</p>';return;}
+  $("#misFic").innerHTML=data.map(f=>`
+    <div class="row"><div class="t">${f.tipo==="entrada"?'Entrada <span class="badge b-in">IN</span>':'Salida <span class="badge b-out">OUT</span>'}</div>
+    <div class="m">${f.lat?'📍 '+f.lat.toFixed(5)+', '+f.lng.toFixed(5)+' ':'Sin ubicación '}${f.lat?`· <a class="maps" target="_blank" href="https://maps.google.com/?q=${f.lat},${f.lng}">ver mapa</a>`:''}</div>
+    <div class="d">${fmt(f.created_at)}</div></div>`).join("");
+}
 
-/* ---------- Historial combinado ---------- */
-async function loadHist(){
-  const [reg,fic]=await Promise.all([
-    db.from("registros").select("id,conductor_id,vehiculo_id,created_at,fecha_devolucion").order("created_at",{ascending:false}).limit(150),
-    db.from("fichajes").select("id,trabajador_id,tipo,lat,lng,precision_m,created_at").order("created_at",{ascending:false}).limit(150)
-  ]);
-  hist=[];
-  if(!reg.error) reg.data.forEach(r=>hist.push({
-    t:"veh", ts:r.created_at,
-    txt:(condMap[r.conductor_id]||"?")+" cogió "+(vehMap[r.vehiculo_id]?vehMap[r.vehiculo_id].nombre:"vehículo #"+r.vehiculo_id),
-    sub:(vehMap[r.vehiculo_id]?vehMap[r.vehiculo_id].matricula+" · ":"")+(r.fecha_devolucion?"Devuelto "+fmt(r.fecha_devolucion):"En uso"),
-    search:((condMap[r.conductor_id]||"")+" "+(vehMap[r.vehiculo_id]?vehMap[r.vehiculo_id].nombre+" "+vehMap[r.vehiculo_id].matricula:"")+" vehiculo").toLowerCase()
-  }));
-  if(!fic.error) fic.data.forEach(f=>hist.push({
-    t:"fic", ts:f.created_at, tipo:f.tipo,
-    txt:(condMap[f.trabajador_id]||"?")+" — "+(f.tipo==="entrada"?"Entrada":"Salida"),
-    sub:(f.lat?"📍 "+f.lat.toFixed(5)+", "+f.lng.toFixed(5)+(f.precision_m?" (±"+f.precision_m+"m)":""):"Sin ubicación"),
-    search:((condMap[f.trabajador_id]||"")+" "+f.tipo+" fichaje").toLowerCase()
-  }));
-  hist.sort((a,b)=>new Date(b.ts)-new Date(a.ts));
-  renderHist();
+/* --- Herramientas (personal) --- */
+async function pHerr(){
+  $("#app").innerHTML=`
+    <div class="card">
+      <h2>Herramientas</h2>
+      <p class="hint">Coge o devuelve herramientas. Todo queda registrado a tu nombre.</p>
+      <input id="obra" class="tools-obra" placeholder="Obra actual (opcional, para 'Coger')">
+      <input id="hfil" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()">
+      <div id="hbody"><p class="empty">Cargando…</p></div>
+      <div id="hOk" class="ok"></div><div id="hErr" class="error"></div>
+    </div>`;
+  await refreshHerr();
 }
-function renderHist(){
-  const q=$("filter").value.trim().toLowerCase();
-  const items=q?hist.filter(h=>h.search.includes(q)):hist;
-  if(!items.length){$("hisList").innerHTML='<p class="small">Sin resultados.</p>';return;}
-  $("hisList").innerHTML=items.map(h=>{
-    const badge=h.t==="fic"?`<span class="badge ${h.tipo==="entrada"?"in":"out"}">${h.tipo==="entrada"?"Entrada":"Salida"}</span>`:`<span class="badge">Vehículo</span>`;
-    return `<div class="row"><div class="vehicle">${h.txt} ${badge}</div><div class="meta">${h.sub}</div><div class="small">${fmt(h.ts)}</div></div>`;
+let herrList=[];
+async function refreshHerr(){
+  const {data,error}=await db.from("herramientas").select("*").order("nombre");
+  if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}
+  herrList=data; renderHerr();
+}
+function estBadge(e){return e==="disponible"?'<span class="badge b-ok">Disponible</span>':e==="en_uso"?'<span class="badge b-use">En uso</span>':e==="reparacion"?'<span class="badge b-rep">Reparación</span>':'<span class="badge b-rep">Baja</span>';}
+function renderHerr(){
+  const q=($("#hfil")?.value||"").toLowerCase();
+  const list=herrList.filter(h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")).toLowerCase().includes(q)));
+  if(!list.length){$("#hbody").innerHTML='<p class="empty">Sin resultados.</p>';return;}
+  $("#hbody").innerHTML=list.map(h=>{
+    let action="";
+    if(h.estado==="disponible") action=`<button class="rowbtn blue" onclick="cogerHerr(${h.id})">Coger</button>`;
+    else if(h.estado==="en_uso") action=`<button class="rowbtn grn" onclick="devolverHerr(${h.id})">Devolver</button>`;
+    const mine=h.responsable_id===worker.id?" (tú)":"";
+    return `<div class="row"><div class="flex"><div>
+      <div class="t">${esc(h.nombre)} ${estBadge(h.estado)}</div>
+      <div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>
+      ${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}
+    </div><div>${action}</div></div></div>`;
   }).join("");
 }
-$("filter").oninput=renderHist;
-
-/* ---------- navegación pestañas ---------- */
-function tab(main){
-  $("vehSec").classList.toggle("hidden",main!=="veh");
-  $("ficSec").classList.toggle("hidden",main!=="fic");
-  $("hisSec").classList.toggle("hidden",main!=="his");
-  $("tabVeh").className=main==="veh"?"active":"secondary";
-  $("tabFic").className=main==="fic"?"active":"secondary";
-  $("tabHis").className=main==="his"?"active":"secondary";
-  if(main==="his")loadHist();
-  if(main==="fic"&&!lastPos)captureGps(true);
+async function cogerHerr(id){
+  const obra=$("#obra")?.value.trim()||null;
+  const r1=await db.from("herramientas").update({estado:"en_uso",responsable_id:worker.id,obra_actual:obra}).eq("id",id);
+  if(r1.error)return msg("#hErr",r1.error.message,true);
+  await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"coger",obra});
+  msg("#hOk","✅ Herramienta cogida.");
+  await refreshHerr();
 }
-$("tabVeh").onclick=()=>tab("veh");
-$("tabFic").onclick=()=>tab("fic");
-$("tabHis").onclick=()=>tab("his");
+window.cogerHerr=cogerHerr;
+async function devolverHerr(id){
+  const r1=await db.from("herramientas").update({estado:"disponible",responsable_id:null,obra_actual:null}).eq("id",id);
+  if(r1.error)return msg("#hErr",r1.error.message,true);
+  await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"devolver"});
+  msg("#hOk","✅ Herramienta devuelta.");
+  await refreshHerr();
+}
+window.devolverHerr=devolverHerr;
 
-$("subCoger").onclick=()=>{$("cogerView").classList.remove("hidden");$("usoView").classList.add("hidden");$("subCoger").className="active";$("subUso").className="secondary";};
-$("subUso").onclick=()=>{$("cogerView").classList.add("hidden");$("usoView").classList.remove("hidden");$("subUso").className="active";$("subCoger").className="secondary";renderUso();};
+/* =====================================================================
+   MODO ADMINISTRADOR
+   ===================================================================== */
+let aTab="veh";
+async function renderAdmin(){
+  $("#who").innerHTML=`<b>Administrador</b><button class="linkbtn" onclick="adminLogout()">Cerrar sesión</button>`;
+  $("#tabs").innerHTML=`
+    <button data-t="veh" onclick="aGo('veh')">Vehículos</button>
+    <button data-t="fic" onclick="aGo('fic')">Fichajes</button>
+    <button data-t="herr" onclick="aGo('herr')">Herramientas</button>`;
+  $("#app").innerHTML='<div class="card"><p class="empty">Cargando…</p></div>';
+  try{ await loadBase(); }catch(e){}
+  aGo("veh");
+}
+function aGo(t){ aTab=t; [...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  if(t==="veh")aVeh(); if(t==="fic")aFic(); if(t==="herr")aHerr(); }
+window.aGo=aGo;
 
-/* ---------- init ---------- */
-loadBase().catch(e=>showMsg($("vehErr"),"No se han podido cargar los datos: "+e.message,true));
+async function aVeh(){
+  $("#app").innerHTML=`<div class="card"><h2>Historial de vehículos</h2>
+    <p class="hint">Quién ha cogido y devuelto cada vehículo.</p>
+    <input id="afil" placeholder="Buscar conductor, vehículo o matrícula" oninput="rVeh()">
+    <div id="avbody"><p class="empty">Cargando…</p></div></div>`;
+  const {data,error}=await db.from("registros").select("conductor_id,vehiculo_id,created_at,fecha_devolucion").order("created_at",{ascending:false}).limit(500);
+  window._regs = error?[]:data;
+  rVeh();
+}
+function rVeh(){
+  const q=($("#afil")?.value||"").toLowerCase();
+  const rows=(window._regs||[]).map(r=>{
+    const c=condMap[r.conductor_id]||"?", v=vehMap[r.vehiculo_id];
+    return {c,vn:v?v.nombre:"veh #"+r.vehiculo_id,mat:v?v.matricula:"",ts:r.created_at,dev:r.fecha_devolucion};
+  }).filter(r=>!q||(r.c+" "+r.vn+" "+r.mat).toLowerCase().includes(q));
+  if(!rows.length){$("#avbody").innerHTML='<p class="empty">Sin registros.</p>';return;}
+  $("#avbody").innerHTML=rows.map(r=>`<div class="row">
+    <div class="t">${esc(r.c)} → ${esc(r.vn)} <span class="badge b-veh">${esc(r.mat)}</span></div>
+    <div class="m">Cogido: ${fmt(r.ts)}</div>
+    <div class="d">${r.dev?"Devuelto: "+fmt(r.dev):'<b style="color:var(--amber)">Aún en uso</b>'}</div></div>`).join("");
+}
+window.rVeh=rVeh;
+
+async function aFic(){
+  $("#app").innerHTML=`<div class="card"><h2>Fichajes de todo el personal</h2>
+    <input id="affil" placeholder="Buscar trabajador o tipo" oninput="rFic()">
+    <div id="afbody"><p class="empty">Cargando…</p></div></div>`;
+  const {data,error}=await db.from("fichajes").select("trabajador_id,tipo,lat,lng,precision_m,created_at").order("created_at",{ascending:false}).limit(500);
+  window._fics = error?[]:data;
+  rFic();
+}
+function rFic(){
+  const q=(document.getElementById("affil")?.value||"").toLowerCase();
+  const rows=(window._fics||[]).map(f=>({n:condMap[f.trabajador_id]||"?",tipo:f.tipo,lat:f.lat,lng:f.lng,ts:f.created_at}))
+    .filter(r=>!q||(r.n+" "+r.tipo).toLowerCase().includes(q));
+  if(!rows.length){$("#afbody").innerHTML='<p class="empty">Sin fichajes.</p>';return;}
+  $("#afbody").innerHTML=rows.map(r=>`<div class="row">
+    <div class="t">${esc(r.n)} — ${r.tipo==="entrada"?'Entrada <span class="badge b-in">IN</span>':'Salida <span class="badge b-out">OUT</span>'}</div>
+    <div class="m">${r.lat?'📍 '+r.lat.toFixed(5)+', '+r.lng.toFixed(5)+' · <a class="maps" target="_blank" href="https://maps.google.com/?q='+r.lat+','+r.lng+'">ver mapa</a>':'Sin ubicación'}</div>
+    <div class="d">${fmt(r.ts)}</div></div>`).join("");
+}
+window.rFic=rFic;
+
+async function aHerr(){
+  $("#app").innerHTML=`<div class="card"><h2>Inventario de herramientas</h2>
+    <input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()">
+    <div id="ahbody"><p class="empty">Cargando…</p></div></div>
+    <div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
+  const [inv,mov]=await Promise.all([
+    db.from("herramientas").select("*").order("nombre"),
+    db.from("herramientas_mov").select("herramienta_id,trabajador_id,tipo,obra,created_at").order("created_at",{ascending:false}).limit(200)
+  ]);
+  window._inv=inv.error?[]:inv.data;
+  window._hmap={}; window._inv.forEach(h=>window._hmap[h.id]=h.nombre);
+  rInv();
+  const m=mov.error?[]:mov.data;
+  $("#amov").innerHTML = m.length? m.map(x=>`<div class="row">
+    <div class="t">${esc(window._hmap[x.herramienta_id]||"herr #"+x.herramienta_id)} — ${x.tipo==="coger"?"Cogida":x.tipo==="devolver"?"Devuelta":esc(x.tipo)}</div>
+    <div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}</div>
+    <div class="d">${fmt(x.created_at)}</div></div>`).join("") : '<p class="empty">Sin movimientos todavía.</p>';
+}
+function rInv(){
+  const q=(document.getElementById("ahfil")?.value||"").toLowerCase();
+  const list=(window._inv||[]).filter(h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")).toLowerCase().includes(q)));
+  const disp=list.filter(h=>h.estado==="disponible").length;
+  $("#ahbody").innerHTML=`<p class="count">${list.length} herramientas · ${disp} disponibles</p>`+list.map(h=>`<div class="row">
+    <div class="t">${esc(h.nombre)} ${estBadge(h.estado)}</div>
+    <div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.stock>1?" · stock "+h.stock:""}</div>
+    ${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}</div>`).join("");
+}
+window.rInv=rInv;
+
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
+function msg(sel,text,isErr){const e=$(sel);if(!e)return;e.textContent=text;e.style.display="block";if(!isErr)setTimeout(()=>e.style.display="none",2400);}
+
+boot().catch(e=>renderCenter("Error",e.message,true));
 </script>
 </body>
 </html>
