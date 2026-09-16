@@ -100,9 +100,9 @@ button:disabled{opacity:.55}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const URL="https://sujletbuufvaajommusm.supabase.co",
-      KEY="sb_publishable_KooKb58QlNiOATewpMFv6Q_kcU-ASuY",
-      db=supabase.createClient(URL,KEY);
+const SB_URL="https://sujletbuufvaajommusm.supabase.co",
+      SB_KEY="sb_publishable_KooKb58QlNiOATewpMFv6Q_kcU-ASuY",
+      db=supabase.createClient(SB_URL,SB_KEY);
 
 let vehiculos=[], conductores=[], condMap={}, vehMap={}, lastPos=null, hist=[];
 
