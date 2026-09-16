@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1769e0">
+<link rel="manifest" href="manifest.json">
+<title>AZERO — Control interno</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f4f6f8;color:#17202a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:560px;margin:auto;padding:18px}
+.brand{font-size:26px;font-weight:800;margin:8px 0 2px}
+.sub{color:#66717c;margin:0 0 16px}
+.card{background:#fff;border-radius:20px;padding:18px;margin:12px 0;box-shadow:0 5px 20px #0000000f}
+label{font-weight:700;display:block;margin:14px 0 7px}
+select,input{width:100%;padding:14px;border:1px solid #d3d9df;border-radius:12px;background:#fff;font-size:17px}
+button{width:100%;border:0;border-radius:13px;padding:15px;font-size:18px;font-weight:800;background:#1769e0;color:#fff;margin-top:16px;cursor:pointer}
+button:disabled{opacity:.55}
+.secondary{background:#eef3f8;color:#1b2733}
+.green{background:#176b36}
+.danger{background:#b42318}
+.tabs{display:flex;gap:8px}
+.tabs button{margin:0;font-size:15px;padding:11px}
+.subtabs{display:flex;gap:8px;margin-bottom:4px}
+.subtabs button{margin:0;font-size:14px;padding:9px;background:#eef3f8;color:#1b2733}
+.active{background:#17202a!important;color:#fff!important}
+.hidden{display:none}
+.row{padding:13px 2px;border-bottom:1px solid #edf0f2}
+.row:last-child{border-bottom:0}
+.vehicle{font-weight:800}
+.meta,.small{color:#68737d;font-size:14px}
+.badge{display:inline-block;background:#edf3ff;color:#1769e0;border-radius:20px;padding:4px 9px;font-size:12px;font-weight:700;margin-left:5px}
+.badge.in{background:#e8f7ed;color:#176b36}
+.badge.out{background:#fff1f1;color:#b42318}
+.rowbtn{width:auto;padding:9px 16px;font-size:14px;margin:8px 0 0}
+.ok{display:none;background:#e8f7ed;color:#176b36;padding:12px;border-radius:11px;margin-top:14px;font-weight:700}
+.error{display:none;background:#fff1f1;color:#b42318;padding:12px;border-radius:11px;margin-top:14px}
+.gps{background:#f5f8fc;border:1px solid #e2e9f1;border-radius:12px;padding:11px;margin-top:12px;font-size:14px;color:#3a4753}
+.btnrow{display:flex;gap:10px}
+.btnrow button{flex:1}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">🚚 AZERO — Control interno</div>
+  <p class="sub">Vehículos · Fichaje · Historial</p>
+
+  <div class="tabs">
+    <button id="tabVeh" class="active">Vehículos</button>
+    <button id="tabFic" class="secondary">Fichaje</button>
+    <button id="tabHis" class="secondary">Historial</button>
+  </div>
+
+  <!-- ===================== VEHÍCULOS ===================== -->
+  <section id="vehSec" class="card">
+    <div class="subtabs">
+      <button id="subCoger" class="active">Coger</button>
+      <button id="subUso" class="secondary">En uso</button>
+    </div>
+
+    <div id="cogerView">
+      <label>Conductor</label>
+      <select id="driver"><option>Cargando...</option></select>
+      <label>Vehículo disponible</label>
+      <select id="vehicle"><option>Cargando...</option></select>
+      <div id="plate" class="small"></div>
+      <button id="btnCoger">COGER VEHÍCULO</button>
+    </div>
+
+    <div id="usoView" class="hidden">
+      <div id="usoList"><p class="small">Cargando...</p></div>
+    </div>
+
+    <div id="vehOk" class="ok"></div>
+    <div id="vehErr" class="error"></div>
+  </section>
+
+  <!-- ===================== FICHAJE ===================== -->
+  <section id="ficSec" class="card hidden">
+    <label>Trabajador</label>
+    <select id="worker"><option>Cargando...</option></select>
+    <div id="gps" class="gps">📍 Ubicación: pulsa "Actualizar ubicación".</div>
+    <button id="btnGps" class="secondary">Actualizar ubicación</button>
+    <div class="btnrow">
+      <button id="btnEntrada" class="green">FICHAR ENTRADA</button>
+      <button id="btnSalida" class="danger">FICHAR SALIDA</button>
+    </div>
+    <div id="ficOk" class="ok"></div>
+    <div id="ficErr" class="error"></div>
+  </section>
+
+  <!-- ===================== HISTORIAL ===================== -->
+  <section id="hisSec" class="card hidden">
+    <label>Buscar en el historial</label>
+    <input id="filter" placeholder="Conductor, vehículo, matrícula o tipo">
+    <div id="hisList"><p class="small">Cargando...</p></div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const URL="https://sujletbuufvaajommusm.supabase.co",
+      KEY="sb_publishable_KooKb58QlNiOATewpMFv6Q_kcU-ASuY",
+      db=supabase.createClient(URL,KEY);
+
+let vehiculos=[], conductores=[], condMap={}, vehMap={}, lastPos=null, hist=[];
+
+const $=id=>document.getElementById(id);
+function showMsg(el,txt,isErr){el.textContent=txt;el.style.display="block";if(!isErr)setTimeout(()=>el.style.display="none",2200);}
+function hideMsg(...els){els.forEach(e=>e.style.display="none");}
+function fmt(ts){return ts?new Date(ts).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):"";}
+
+/* ---------- carga de datos base ---------- */
+async function loadBase(){
+  const [v,c]=await Promise.all([
+    db.from("vehiculos").select("id,nombre,matricula,activo,en_uso,conductor_actual_id").eq("activo",true).order("nombre"),
+    db.from("conductores").select("id,nombre").eq("activo",true).order("nombre")
+  ]);
+  if(v.error) throw v.error;
+  if(c.error) throw c.error;
+  vehiculos=v.data; conductores=c.data;
+  condMap={}; conductores.forEach(x=>condMap[x.id]=x.nombre);
+  vehMap={}; vehiculos.forEach(x=>vehMap[x.id]=x);
+
+  const condOpts='<option value="">Selecciona...</option>'+conductores.map(x=>`<option value="${x.id}">${x.nombre}</option>`).join("");
+  $("driver").innerHTML=condOpts;
+  $("worker").innerHTML=condOpts;
+  renderCoger(); renderUso();
+}
+
+/* ---------- Vehículos: Coger ---------- */
+function renderCoger(){
+  const libres=vehiculos.filter(x=>!x.en_uso);
+  $("vehicle").innerHTML='<option value="">Selecciona vehículo</option>'+
+    libres.map(x=>`<option value="${x.id}">${x.nombre} — ${x.matricula}</option>`).join("");
+  $("plate").textContent="";
+}
+$("vehicle").onchange=()=>{const v=vehMap[$("vehicle").value];$("plate").textContent=v?"Matrícula: "+v.matricula:"";};
+
+$("btnCoger").onclick=async()=>{
+  hideMsg($("vehErr"),$("vehOk"));
+  const cid=+$("driver").value, vid=+$("vehicle").value;
+  if(!cid||!vid){showMsg($("vehErr"),"Selecciona conductor y vehículo.",true);return;}
+  $("btnCoger").disabled=true;
+  const r1=await db.from("registros").insert({conductor_id:cid,vehiculo_id:vid});
+  if(r1.error){$("btnCoger").disabled=false;showMsg($("vehErr"),r1.error.message,true);return;}
+  const r2=await db.from("vehiculos").update({en_uso:true,conductor_actual_id:cid}).eq("id",vid);
+  $("btnCoger").disabled=false;
+  if(r2.error){showMsg($("vehErr"),r2.error.message,true);return;}
+  showMsg($("vehOk"),"✅ "+vehMap[vid].nombre+" asignado a "+condMap[cid]);
+  $("driver").value="";$("vehicle").value="";$("plate").textContent="";
+  await loadBase();
+};
+
+/* ---------- Vehículos: En uso ---------- */
+async function renderUso(){
+  const enUso=vehiculos.filter(x=>x.en_uso);
+  if(!enUso.length){$("usoList").innerHTML='<p class="small">No hay vehículos en uso ahora mismo.</p>';return;}
+  // buscar registros abiertos para saber desde cuándo
+  const reg=await db.from("registros").select("vehiculo_id,created_at").is("fecha_devolucion",null).order("created_at",{ascending:false});
+  const desde={}; if(!reg.error){reg.data.forEach(r=>{if(!(r.vehiculo_id in desde))desde[r.vehiculo_id]=r.created_at;});}
+  $("usoList").innerHTML=enUso.map(v=>`
+    <div class="row">
+      <div class="vehicle">${v.nombre} <span class="badge">${v.matricula}</span></div>
+      <div class="meta">Conductor: ${condMap[v.conductor_actual_id]||"—"}${desde[v.id]?" · desde "+fmt(desde[v.id]):""}</div>
+      <button class="rowbtn secondary" onclick="devolver(${v.id})">Devolver</button>
+    </div>`).join("");
+}
+
+async function devolver(vid){
+  hideMsg($("vehErr"),$("vehOk"));
+  const r1=await db.from("registros").update({fecha_devolucion:new Date().toISOString()}).eq("vehiculo_id",vid).is("fecha_devolucion",null);
+  if(r1.error){showMsg($("vehErr"),r1.error.message,true);return;}
+  const r2=await db.from("vehiculos").update({en_uso:false,conductor_actual_id:null}).eq("id",vid);
+  if(r2.error){showMsg($("vehErr"),r2.error.message,true);return;}
+  showMsg($("vehOk"),"✅ "+(vehMap[vid]?vehMap[vid].nombre:"Vehículo")+" devuelto");
+  await loadBase();
+}
+window.devolver=devolver;
+
+/* ---------- Fichaje: GPS ---------- */
+function captureGps(silent){
+  if(!navigator.geolocation){$("gps").textContent="📍 Este dispositivo no permite ubicación.";return;}
+  $("gps").textContent="📍 Obteniendo ubicación...";
+  navigator.geolocation.getCurrentPosition(
+    p=>{lastPos={lat:p.coords.latitude,lng:p.coords.longitude,precision_m:Math.round(p.coords.accuracy)};
+        $("gps").textContent="📍 Ubicación lista (precisión ±"+lastPos.precision_m+" m)";},
+    e=>{lastPos=null;$("gps").textContent="📍 Sin ubicación ("+e.message+"). Puedes fichar igualmente.";},
+    {enableHighAccuracy:true,timeout:10000,maximumAge:0}
+  );
+}
+$("btnGps").onclick=()=>captureGps(false);
+
+async function fichar(tipo){
+  hideMsg($("ficErr"),$("ficOk"));
+  const tid=+$("worker").value;
+  if(!tid){showMsg($("ficErr"),"Selecciona el trabajador.",true);return;}
+  $("btnEntrada").disabled=$("btnSalida").disabled=true;
+  const rec={trabajador_id:tid,tipo:tipo};
+  if(lastPos){rec.lat=lastPos.lat;rec.lng=lastPos.lng;rec.precision_m=lastPos.precision_m;}
+  const {error}=await db.from("fichajes").insert(rec);
+  $("btnEntrada").disabled=$("btnSalida").disabled=false;
+  if(error){showMsg($("ficErr"),error.message,true);return;}
+  showMsg($("ficOk"),"✅ "+(tipo==="entrada"?"Entrada":"Salida")+" registrada — "+condMap[tid]+(lastPos?"":" (sin ubicación)"));
+}
+$("btnEntrada").onclick=()=>fichar("entrada");
+$("btnSalida").onclick=()=>fichar("salida");
+
+/* ---------- Historial combinado ---------- */
+async function loadHist(){
+  const [reg,fic]=await Promise.all([
+    db.from("registros").select("id,conductor_id,vehiculo_id,created_at,fecha_devolucion").order("created_at",{ascending:false}).limit(150),
+    db.from("fichajes").select("id,trabajador_id,tipo,lat,lng,precision_m,created_at").order("created_at",{ascending:false}).limit(150)
+  ]);
+  hist=[];
+  if(!reg.error) reg.data.forEach(r=>hist.push({
+    t:"veh", ts:r.created_at,
+    txt:(condMap[r.conductor_id]||"?")+" cogió "+(vehMap[r.vehiculo_id]?vehMap[r.vehiculo_id].nombre:"vehículo #"+r.vehiculo_id),
+    sub:(vehMap[r.vehiculo_id]?vehMap[r.vehiculo_id].matricula+" · ":"")+(r.fecha_devolucion?"Devuelto "+fmt(r.fecha_devolucion):"En uso"),
+    search:((condMap[r.conductor_id]||"")+" "+(vehMap[r.vehiculo_id]?vehMap[r.vehiculo_id].nombre+" "+vehMap[r.vehiculo_id].matricula:"")+" vehiculo").toLowerCase()
+  }));
+  if(!fic.error) fic.data.forEach(f=>hist.push({
+    t:"fic", ts:f.created_at, tipo:f.tipo,
+    txt:(condMap[f.trabajador_id]||"?")+" — "+(f.tipo==="entrada"?"Entrada":"Salida"),
+    sub:(f.lat?"📍 "+f.lat.toFixed(5)+", "+f.lng.toFixed(5)+(f.precision_m?" (±"+f.precision_m+"m)":""):"Sin ubicación"),
+    search:((condMap[f.trabajador_id]||"")+" "+f.tipo+" fichaje").toLowerCase()
+  }));
+  hist.sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+  renderHist();
+}
+function renderHist(){
+  const q=$("filter").value.trim().toLowerCase();
+  const items=q?hist.filter(h=>h.search.includes(q)):hist;
+  if(!items.length){$("hisList").innerHTML='<p class="small">Sin resultados.</p>';return;}
+  $("hisList").innerHTML=items.map(h=>{
+    const badge=h.t==="fic"?`<span class="badge ${h.tipo==="entrada"?"in":"out"}">${h.tipo==="entrada"?"Entrada":"Salida"}</span>`:`<span class="badge">Vehículo</span>`;
+    return `<div class="row"><div class="vehicle">${h.txt} ${badge}</div><div class="meta">${h.sub}</div><div class="small">${fmt(h.ts)}</div></div>`;
+  }).join("");
+}
+$("filter").oninput=renderHist;
+
+/* ---------- navegación pestañas ---------- */
+function tab(main){
+  $("vehSec").classList.toggle("hidden",main!=="veh");
+  $("ficSec").classList.toggle("hidden",main!=="fic");
+  $("hisSec").classList.toggle("hidden",main!=="his");
+  $("tabVeh").className=main==="veh"?"active":"secondary";
+  $("tabFic").className=main==="fic"?"active":"secondary";
+  $("tabHis").className=main==="his"?"active":"secondary";
+  if(main==="his")loadHist();
+  if(main==="fic"&&!lastPos)captureGps(true);
+}
+$("tabVeh").onclick=()=>tab("veh");
+$("tabFic").onclick=()=>tab("fic");
+$("tabHis").onclick=()=>tab("his");
+
+$("subCoger").onclick=()=>{$("cogerView").classList.remove("hidden");$("usoView").classList.add("hidden");$("subCoger").className="active";$("subUso").className="secondary";};
+$("subUso").onclick=()=>{$("cogerView").classList.add("hidden");$("usoView").classList.remove("hidden");$("subUso").className="active";$("subCoger").className="secondary";renderUso();};
+
+/* ---------- init ---------- */
+loadBase().catch(e=>showMsg($("vehErr"),"No se han podido cargar los datos: "+e.message,true));
+</script>
+</body>
+</html>
