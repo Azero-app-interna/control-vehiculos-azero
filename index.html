@@ -172,11 +172,17 @@ function vSet(s){vSub=s;$("#sc").classList.toggle("active",s==="coger");$("#su")
 window.vSet=vSet;
 function vCoger(){
   const libres=vehiculos.filter(x=>!x.en_uso);
+  const yaTengo=vehiculos.find(x=>x.en_uso&&x.conductor_actual_id===worker.id);
+  if(yaTengo){$("#vbody").innerHTML=`<div class="gps" style="display:block">Ya tienes un vehículo en uso: <b>${esc(up(yaTengo.nombre))}</b>. Devuélvelo en la pestaña "En uso" antes de coger otro.</div>`;return;}
   $("#vbody").innerHTML=`<label>Vehículo disponible</label><select id="veh"><option value="">SELECCIONA VEHÍCULO</option>${libres.map(x=>`<option value="${x.id}">${esc(up(x.nombre))} — ${esc(up(x.matricula))}</option>`).join("")}</select><button class="primary" onclick="coger()">COGER VEHÍCULO</button><p class="hint" style="margin-top:10px">Quedará registrado a tu nombre (${esc(worker.nombre)}) con la fecha y hora.</p>`;
 }
 async function coger(){
   const vid=+$("#veh").value;if(!vid){msg("#vErr","Selecciona un vehículo.",true);return;}
+  const yaTengo=vehiculos.find(x=>x.en_uso&&x.conductor_actual_id===worker.id);
+  if(yaTengo){return msg("#vErr","Ya tienes un vehículo en uso ("+up(yaTengo.nombre)+"). Devuélvelo antes de coger otro.",true);}
   const b=event.target;b.disabled=true;
+  const chk=await db.from("vehiculos").select("en_uso,conductor_actual_id").eq("id",vid).single();
+  if(!chk.error&&chk.data&&chk.data.en_uso){b.disabled=false;await loadBase();vSet("coger");return msg("#vErr","Ese vehículo ya lo ha cogido otra persona. Actualiza la lista.",true);}
   const r1=await db.from("registros").insert({conductor_id:worker.id,vehiculo_id:vid});
   if(r1.error){b.disabled=false;return msg("#vErr",r1.error.message,true);}
   const r2=await db.from("vehiculos").update({en_uso:true,conductor_actual_id:worker.id}).eq("id",vid);
