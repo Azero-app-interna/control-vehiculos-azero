@@ -3,70 +3,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#12233b">
+<meta name="theme-color" content="#1f2328">
 <link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <title>AZERO — Control interno</title>
 <style>
 :root{
-  --bg:#eef1f5; --card:#fff; --ink:#16202c; --muted:#69747f; --line:#e5e9ee;
-  --brand:#12233b; --accent:#1769e0; --accent2:#0f57c2; --green:#0f7a3d; --red:#c0392b; --amber:#b7791f;
-  --radius:16px; --shadow:0 6px 22px #0b213a12;
+  --bg:#f4f3f1; --card:#fff; --ink:#1f2328; --muted:#8a8781; --line:#e6e3df;
+  --brand:#1f2328; --accent:#e2680f; --accent2:#b9540b; --green:#177245; --red:#c0392b; --amber:#b7791f;
+  --radius:10px; --shadow:0 4px 16px #1f232810;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--ink);font-family:Archivo,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 main{max-width:600px;margin:auto;padding:0 16px 40px}
-.appbar{background:var(--brand);color:#fff;margin:0 -16px;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
-.brand b{display:block;font-size:20px;font-weight:800;letter-spacing:3px;line-height:1}
-.brand span{display:block;font-size:10px;letter-spacing:1.5px;color:#9fb4cf;text-transform:uppercase;margin-top:3px}
+.appbar{background:#fff;color:var(--ink);border-top:4px solid var(--accent);border-bottom:1px solid var(--line);margin:0 -16px;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+.brand b{display:block;font-size:21px;font-weight:900;letter-spacing:1px;line-height:1;color:var(--ink)}
+.brand span{display:block;font-size:10px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-top:3px;font-weight:700}
 .who{margin-left:auto;text-align:right;font-size:13px;line-height:1.25}
-.who b{display:block;font-size:14px}
-.who span{color:#9fb4cf;font-size:11px}
-.linkbtn{background:none;border:0;color:#9fb4cf;font-size:12px;cursor:pointer;padding:0;margin-top:2px;text-decoration:underline}
-.tabs{display:flex;gap:6px;background:var(--brand);margin:0 -16px;padding:0 16px 12px;position:sticky;top:64px;z-index:19}
-.tabs button{flex:1;border:0;border-radius:11px;padding:11px 6px;font-size:14px;font-weight:700;background:#ffffff1a;color:#cdd8e6;cursor:pointer}
-.tabs button.active{background:#fff;color:var(--brand)}
-.card{background:var(--card);border-radius:var(--radius);padding:18px;margin:16px 0;box-shadow:var(--shadow)}
-.card h2{margin:0 0 4px;font-size:18px}
+.who b{display:block;font-size:14px;font-weight:800}
+.who span{color:var(--muted);font-size:11px}
+.linkbtn{background:none;border:0;color:var(--accent);font-size:12px;cursor:pointer;padding:0;margin-top:2px;text-decoration:underline;font-weight:700}
+.tabs{display:flex;gap:8px;background:#fff;border-bottom:1px solid var(--line);margin:0 -16px;padding:0 16px 12px;position:sticky;top:63px;z-index:19}
+.tabs button{flex:1;border:0;border-radius:8px;padding:11px 6px;font-size:13px;font-weight:700;background:#f0eeeb;color:#6b6862;cursor:pointer;text-transform:uppercase;letter-spacing:.5px}
+.tabs button.active{background:var(--accent);color:#fff;font-weight:800}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin:14px 0;box-shadow:var(--shadow)}
+.card h2{margin:0 0 4px;font-size:18px;font-weight:900}
 .card .hint{color:var(--muted);font-size:13px;margin:0 0 8px}
-label{font-weight:700;display:block;margin:14px 0 7px;font-size:14px}
-select,input{width:100%;padding:14px;border:1px solid #d5dbe2;border-radius:12px;background:#fff;font-size:16px;color:var(--ink)}
-select{letter-spacing:.4px}
-button.primary{width:100%;border:0;border-radius:13px;padding:15px;font-size:17px;font-weight:800;background:var(--accent);color:#fff;margin-top:16px;cursor:pointer;letter-spacing:.5px}
+label{font-weight:800;display:block;margin:14px 0 7px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#6b6862}
+select,input{width:100%;padding:14px;border:1px solid #d9d5cf;border-radius:8px;background:#fff;font-size:16px;color:var(--ink);font-family:inherit}
+select{letter-spacing:.4px;font-weight:700}
+button.primary{width:100%;border:0;border-radius:8px;padding:16px;font-size:17px;font-weight:900;background:var(--accent);color:#fff;margin-top:16px;cursor:pointer;letter-spacing:.5px}
+button.primary:active{background:var(--accent2)}
 button:disabled{opacity:.5}
-.subtabs{display:flex;gap:8px;margin-bottom:6px}
-.subtabs button{flex:1;border:0;border-radius:10px;padding:10px;font-size:14px;font-weight:700;background:#eef2f7;color:#38424e;cursor:pointer}
+.subtabs{display:flex;gap:8px;margin-bottom:8px}
+.subtabs button{flex:1;border:0;border-radius:8px;padding:11px;font-size:13px;font-weight:800;background:#f0eeeb;color:#6b6862;cursor:pointer;text-transform:uppercase;letter-spacing:.5px}
 .subtabs button.active{background:var(--brand);color:#fff}
-.row{padding:13px 2px;border-bottom:1px solid var(--line)}
+.row{padding:14px 2px;border-bottom:2px solid #f0eeeb}
 .row:last-child{border-bottom:0}
-.row .t{font-weight:700;letter-spacing:.3px}
+.row .t{font-weight:800;letter-spacing:.3px}
 .row .m{color:var(--muted);font-size:13px;margin-top:2px}
-.row .d{color:#94a0ac;font-size:12px;margin-top:2px}
-.badge{display:inline-block;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:800;margin-left:4px;vertical-align:middle}
-.b-ok{background:#e6f5ec;color:var(--green)}
+.row .d{color:#a29d95;font-size:12px;margin-top:2px}
+.badge{display:inline-block;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:800;margin-left:4px;vertical-align:middle;text-transform:uppercase}
+.b-ok{background:#e6f2ea;color:var(--green)}
 .b-use{background:#fdeede;color:var(--amber)}
-.b-rep{background:#fdeaea;color:var(--red)}
-.b-in{background:#e6f5ec;color:var(--green)}
-.b-out{background:#fdeaea;color:var(--red)}
-.b-veh{background:#e7effc;color:var(--accent)}
-.b-zona{background:#eef1f5;color:#3a4b5c}
-.rowbtn{width:auto;padding:8px 15px;font-size:13px;font-weight:700;border:0;border-radius:10px;background:#eef2f7;color:#25303c;cursor:pointer;margin-top:9px}
+.b-rep{background:#fdeded;color:var(--red)}
+.b-in{background:#177245;color:#fff}
+.b-out{background:#c0392b;color:#fff}
+.b-veh{background:#eef1f5;color:#1f2328}
+.b-zona{background:#faf1e8;color:var(--accent)}
+.rowbtn{width:auto;padding:9px 16px;font-size:12px;font-weight:800;border:0;border-radius:6px;background:#f0eeeb;color:#25303c;cursor:pointer;margin-top:9px;text-transform:uppercase;letter-spacing:.4px}
 .rowbtn.blue{background:var(--accent);color:#fff}
 .rowbtn.grn{background:var(--green);color:#fff}
 .flex{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .btnrow{display:flex;gap:10px;margin-top:16px}
-.btnrow button{flex:1;border:0;border-radius:13px;padding:16px;font-size:17px;font-weight:800;color:#fff;cursor:pointer;letter-spacing:.5px}
+.btnrow button{flex:1;border:0;border-radius:8px;padding:18px;font-size:17px;font-weight:900;color:#fff;cursor:pointer;letter-spacing:.5px}
 .b-entrada{background:var(--green)}
 .b-salida{background:var(--red)}
-.gps{background:#f2f6fb;border:1px solid #e0e8f1;border-radius:12px;padding:11px;margin-top:12px;font-size:13px;color:#3a4b5c}
-.ok{display:none;background:#e6f5ec;color:var(--green);padding:12px;border-radius:11px;margin-top:14px;font-weight:700;font-size:14px}
-.error{display:none;background:#fdeaea;color:var(--red);padding:12px;border-radius:11px;margin-top:14px;font-size:14px}
+.gps{background:#faf6f2;border:1px solid #f0e3d7;border-radius:8px;padding:11px;margin-top:12px;font-size:13px;color:#5a544d;font-weight:600}
+.ok{display:none;background:#e6f2ea;color:var(--green);padding:12px;border-radius:8px;margin-top:14px;font-weight:800;font-size:14px}
+.error{display:none;background:#fdeded;color:var(--red);padding:12px;border-radius:8px;margin-top:14px;font-size:14px}
 .empty{color:var(--muted);font-size:14px;padding:8px 0}
-.count{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:18px 2px 4px}
+.count{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:18px 2px 4px}
 .center{max-width:380px;margin:14vh auto 0;text-align:center}
-.center .wm{font-size:30px;font-weight:800;letter-spacing:5px;color:var(--brand)}
-.center .wms{font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:4px 0 22px}
-.center h1{font-size:22px;margin:0 0 6px}
+.center .wm{font-size:32px;font-weight:900;letter-spacing:2px;color:var(--ink)}
+.center .wms{font-size:11px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin:4px 0 22px;font-weight:700}
+.center h1{font-size:22px;margin:0 0 6px;font-weight:900}
 .center p{color:var(--muted);font-size:14px;margin:0 0 18px}
 a.maps{color:var(--accent);text-decoration:none;font-size:12px}
 </style>
@@ -100,18 +104,10 @@ let worker=null, vehiculos=[], condMap={}, vehMap={}, obras=[], zonas=[];
 const params=new URLSearchParams(location.search);
 const wmHTML='<div class="wm">AZERO</div><div class="wms">Control interno</div>';
 
-/* ---- geo ---- */
 function distM(a,b,c,d){const R=6371000,r=Math.PI/180;const dLa=(c-a)*r,dLo=(d-b)*r;const s=Math.sin(dLa/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
 function resolverZona(lat,lng){let best=null,bd=1e12;zonas.forEach(z=>{const d=distM(lat,lng,z.lat,z.lng);if(d<=z.radio_m&&d<bd){bd=d;best=z.nombre;}});return best;}
-function getPos(){return new Promise(res=>{
-  if(!navigator.geolocation)return res(null);
-  navigator.geolocation.getCurrentPosition(
-    p=>res({lat:p.coords.latitude,lng:p.coords.longitude,precision_m:Math.round(p.coords.accuracy)}),
-    e=>res(null),
-    {enableHighAccuracy:true,timeout:10000,maximumAge:0});
-});}
+function getPos(){return new Promise(res=>{if(!navigator.geolocation)return res(null);navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude,precision_m:Math.round(p.coords.accuracy)}),e=>res(null),{enableHighAccuracy:true,timeout:10000,maximumAge:0});});}
 
-/* ---- arranque ---- */
 async function boot(){
   let token=params.get("u");
   if(token){lsSet("azero_token",token);}
@@ -127,7 +123,7 @@ async function boot(){
 }
 function renderCenter(title,text,adminLink){
   $("#tabs").innerHTML="";$("#who").innerHTML="";
-  $("#app").innerHTML=`<div class="center">${wmHTML}<h1>${esc(title)}</h1><p>${esc(text)}</p>${adminLink?'<button class="linkbtn" style="color:var(--accent);font-size:14px" onclick="location.search=\'?admin=1\'">Entrar como administrador</button>':''}</div>`;
+  $("#app").innerHTML=`<div class="center">${wmHTML}<h1>${esc(title)}</h1><p>${esc(text)}</p>${adminLink?'<button class="linkbtn" style="font-size:14px" onclick="location.search=\'?admin=1\'">Entrar como administrador</button>':''}</div>`;
 }
 function startAdmin(){
   worker=null;
@@ -158,10 +154,10 @@ async function loadBase(){
   obras.forEach(o=>{if(o.lat!=null&&o.lng!=null)zonas.push({nombre:o.codigo+" · "+o.nombre,lat:o.lat,lng:o.lng,radio_m:o.radio_m||150});});
 }
 
-/* ================= PERSONAL ================= */
+/* PERSONAL */
 function startPersonal(){
   $("#who").innerHTML=`<b>${esc(worker.nombre)}</b><span>Tu acceso personal</span>`;
-  $("#tabs").innerHTML=`<button data-t="veh" onclick="pGo('veh')">Vehículos</button><button data-t="fic" onclick="pGo('fic')">Fichaje</button><button data-t="herr" onclick="pGo('herr')">Herramientas</button>`;
+  $("#tabs").innerHTML=`<button data-t="veh" onclick="pGo('veh')">Vehículos</button><button data-t="fic" onclick="pGo('fic')">Fichaje</button><button data-t="herr" onclick="pGo('herr')">Herram.</button>`;
   pGo("veh");
 }
 function pGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")pVeh();if(t==="fic")pFic();if(t==="herr")pHerr();}
@@ -204,7 +200,7 @@ async function devolver(vid){
 }
 window.devolver=devolver;
 
-/* ---- Fichaje (ubicación solo al pulsar) ---- */
+/* FICHAJE */
 function pFic(){
   $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
   if(!zonas.length)loadBase().catch(()=>{});
@@ -237,7 +233,7 @@ async function loadMisFichajes(){
   $("#misFic").innerHTML=data.map(f=>`<div class="row"><div class="t">${f.tipo==="entrada"?'Entrada <span class="badge b-in">IN</span>':'Salida <span class="badge b-out">OUT</span>'}</div><div class="m">${fLugar(f)}</div><div class="d">${fmt(f.created_at)}</div></div>`).join("");
 }
 
-/* ---- Herramientas ---- */
+/* HERRAMIENTAS */
 async function pHerr(){
   await loadBase().catch(()=>{});
   const opts=obras.map(o=>{const t=esc(o.codigo+" · "+o.nombre);return `<option value="${t}">${t}</option>`;}).join("");
@@ -251,17 +247,17 @@ function renderHerr(){
   const q=($("#hfil")?.value||"").toLowerCase();
   const list=herrList.filter(h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")).toLowerCase().includes(q)));
   if(!list.length){$("#hbody").innerHTML='<p class="empty">Sin resultados.</p>';return;}
-  $("#hbody").innerHTML=list.map(h=>{let a="";if(h.estado==="disponible")a=`<button class="rowbtn blue" onclick="cogerHerr(${h.id})">Coger</button>`;else if(h.estado==="en_uso")a=`<button class="rowbtn grn" onclick="devolverHerr(${h.id})">Devolver</button>`;const mine=h.responsable_id===worker.id?" (tú)":"";return `<div class="row"><div class="flex"><div><div class="t">${esc(h.nombre)} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}</div><div>${a}</div></div></div>`;}).join("");
+  $("#hbody").innerHTML=list.map(h=>{let a="";if(h.estado==="disponible")a=`<button class="rowbtn blue" onclick="cogerHerr(${h.id})">Coger</button>`;else if(h.estado==="en_uso")a=`<button class="rowbtn grn" onclick="devolverHerr(${h.id})">Devolver</button>`;const mine=h.responsable_id===worker.id?" (tú)":"";return `<div class="row"><div class="flex"><div><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}</div><div>${a}</div></div></div>`;}).join("");
 }
 async function cogerHerr(id){const obra=$("#obra")?.value||null;const r1=await db.from("herramientas").update({estado:"en_uso",responsable_id:worker.id,obra_actual:obra}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"coger",obra});msg("#hOk","✅ Herramienta cogida.");await refreshHerr();}
 window.cogerHerr=cogerHerr;
 async function devolverHerr(id){const r1=await db.from("herramientas").update({estado:"disponible",responsable_id:null,obra_actual:null}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"devolver"});msg("#hOk","✅ Herramienta devuelta.");await refreshHerr();}
 window.devolverHerr=devolverHerr;
 
-/* ================= ADMIN ================= */
+/* ADMIN */
 async function renderAdmin(){
   $("#who").innerHTML=`<b>Administrador</b><button class="linkbtn" onclick="adminLogout()">Cerrar sesión</button>`;
-  $("#tabs").innerHTML=`<button data-t="veh" onclick="aGo('veh')">Vehículos</button><button data-t="fic" onclick="aGo('fic')">Fichajes</button><button data-t="herr" onclick="aGo('herr')">Herramientas</button>`;
+  $("#tabs").innerHTML=`<button data-t="veh" onclick="aGo('veh')">Vehículos</button><button data-t="fic" onclick="aGo('fic')">Fichajes</button><button data-t="herr" onclick="aGo('herr')">Herram.</button>`;
   $("#app").innerHTML='<div class="card"><p class="empty">Cargando…</p></div>';
   try{await loadBase();}catch(e){}
   aGo("veh");
@@ -300,13 +296,13 @@ async function aHerr(){
   const keys=Object.keys(porObra).sort();
   $("#aobra").innerHTML=keys.length?keys.map(o=>`<div class="row"><div class="t">${esc(o)}</div><div class="m">${esc(porObra[o].join(", "))}</div></div>`).join(""):'<p class="empty">Ninguna herramienta asignada a una obra ahora mismo.</p>';
   const m=mov.error?[]:mov.data;
-  $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(window._hmap[x.herramienta_id]||"herr #"+x.herramienta_id)} — ${x.tipo==="coger"?"Cogida":x.tipo==="devolver"?"Devuelta":esc(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
+  $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||"herr #"+x.herramienta_id))} — ${x.tipo==="coger"?"Cogida":x.tipo==="devolver"?"Devuelta":esc(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
 }
 function rInv(){
   const q=(document.getElementById("ahfil")?.value||"").toLowerCase();
   const list=(window._inv||[]).filter(h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")).toLowerCase().includes(q)));
   const disp=list.filter(h=>h.estado==="disponible").length;
-  $("#ahbody").innerHTML=`<p class="count">${list.length} herramientas · ${disp} disponibles</p>`+list.map(h=>`<div class="row"><div class="t">${esc(h.nombre)} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.stock>1?" · stock "+h.stock:""}</div>${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}</div>`).join("");
+  $("#ahbody").innerHTML=`<p class="count">${list.length} herramientas · ${disp} disponibles</p>`+list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.stock>1?" · stock "+h.stock:""}</div>${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}</div>`).join("");
 }
 window.rInv=rInv;
 
