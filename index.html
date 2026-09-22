@@ -233,26 +233,46 @@ async function loadMisFichajes(){
   $("#misFic").innerHTML=data.map(f=>`<div class="row"><div class="t">${f.tipo==="entrada"?'Entrada <span class="badge b-in">IN</span>':'Salida <span class="badge b-out">OUT</span>'}</div><div class="m">${fLugar(f)}</div><div class="d">${fmt(f.created_at)}</div></div>`).join("");
 }
 
-/* HERRAMIENTAS */
+/* HERRAMIENTAS (personal) */
+let herrList=[], hSub="almacen", repairId=null;
+function obraOpts(){return obras.map(o=>{const t=esc(o.codigo+" · "+o.nombre);return `<option value="${t}">${t}</option>`;}).join("");}
 async function pHerr(){
   await loadBase().catch(()=>{});
-  const opts=obras.map(o=>{const t=esc(o.codigo+" · "+o.nombre);return `<option value="${t}">${t}</option>`;}).join("");
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><p class="hint">Coge o devuelve herramientas. Todo queda registrado a tu nombre.</p><label>Obra (para 'Coger')</label><select id="obra"><option value="">Sin obra / Taller</option>${opts}</select><input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
-  await refreshHerr();
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs"><button id="ha" onclick="hSet('almacen')">Almacén</button><button id="ho" onclick="hSet('obra')">En obra</button><button id="hr" onclick="hSet('reparacion')">Reparación</button></div><div id="hobrawrap" style="display:none"><label>Obra (para 'Coger')</label><select id="obra"><option value="">Sin obra / Taller</option>${obraOpts()}</select></div><input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
+  await refreshHerr();hSet(hSub);
 }
-let herrList=[];
+function hSet(s){hSub=s;repairId=null;const map={almacen:"ha",obra:"ho",reparacion:"hr"};["ha","ho","hr"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
+window.hSet=hSet;
+function setRepair(id){repairId=id;renderHerr();}
+window.setRepair=setRepair;
 async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data;renderHerr();}
 function estBadge(e){return e==="disponible"?'<span class="badge b-ok">Disponible</span>':e==="en_uso"?'<span class="badge b-use">En uso</span>':e==="reparacion"?'<span class="badge b-rep">Reparación</span>':'<span class="badge b-rep">Baja</span>';}
+function hMeta(h){return `<div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>`;}
+function repairForm(id){return `<div style="margin-top:9px"><input id="rep${id}" placeholder="¿Qué le pasa? (ej. no arranca)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="reportAveria(${id})">Enviar a reparación</button></div></div>`;}
 function renderHerr(){
+  const obw=$("#hobrawrap");if(obw)obw.style.display=hSub==="almacen"?"block":"none";
   const q=($("#hfil")?.value||"").toLowerCase();
-  const list=herrList.filter(h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")).toLowerCase().includes(q)));
-  if(!list.length){$("#hbody").innerHTML='<p class="empty">Sin resultados.</p>';return;}
-  $("#hbody").innerHTML=list.map(h=>{let a="";if(h.estado==="disponible")a=`<button class="rowbtn blue" onclick="cogerHerr(${h.id})">Coger</button>`;else if(h.estado==="en_uso")a=`<button class="rowbtn grn" onclick="devolverHerr(${h.id})">Devolver</button>`;const mine=h.responsable_id===worker.id?" (tú)":"";return `<div class="row"><div class="flex"><div><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}</div><div>${a}</div></div></div>`;}).join("");
+  const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")).toLowerCase().includes(q));
+  const body=$("#hbody");if(!body)return;
+  if(hSub==="almacen"){
+    const list=herrList.filter(h=>h.estado==="disponible").filter(match);
+    body.innerHTML=list.length?(`<p class="count">${list.length} en almacén</p>`+list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div>${hMeta(h)}${repairId===h.id?repairForm(h.id):`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}</div>`).join("")):'<p class="empty">No hay herramientas en el almacén.</p>';
+  }else if(hSub==="obra"){
+    const list=herrList.filter(h=>h.estado==="en_uso").filter(match);
+    if(!list.length){body.innerHTML='<p class="empty">No hay herramientas en obra ahora mismo.</p>';return;}
+    const g={};list.forEach(h=>{const k=h.obra_actual||"Sin obra / Taller";(g[k]=g[k]||[]).push(h);});
+    body.innerHTML=Object.keys(g).sort().map(o=>`<p class="count">${esc(o)}</p>`+g[o].map(h=>{const mine=h.responsable_id===worker.id?" (tú)":"";return `<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div>${hMeta(h)}<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}</div>${repairId===h.id?repairForm(h.id):`<div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}</div>`;}).join("")).join("");
+  }else{
+    const list=herrList.filter(h=>h.estado==="reparacion").filter(match);
+    body.innerHTML=list.length?(`<p class="count">${list.length} en reparación</p>`+list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div>${hMeta(h)}${h.nota_reparacion?`<div class="d">⚠️ ${esc(h.nota_reparacion)}</div>`:""}<div class="d">Reportada por: ${esc(condMap[h.responsable_id]||"—")}</div></div>`).join("")):'<p class="empty">No hay herramientas en reparación.</p>';
+  }
 }
 async function cogerHerr(id){const obra=$("#obra")?.value||null;const r1=await db.from("herramientas").update({estado:"en_uso",responsable_id:worker.id,obra_actual:obra}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"coger",obra});msg("#hOk","✅ Herramienta cogida.");await refreshHerr();}
 window.cogerHerr=cogerHerr;
 async function devolverHerr(id){const r1=await db.from("herramientas").update({estado:"disponible",responsable_id:null,obra_actual:null}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"devolver"});msg("#hOk","✅ Herramienta devuelta.");await refreshHerr();}
 window.devolverHerr=devolverHerr;
+async function reportAveria(id){const nota=($("#rep"+id)?.value||"").trim();const r1=await db.from("herramientas").update({estado:"reparacion",responsable_id:worker.id,obra_actual:null,nota_reparacion:nota||null}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"averia",nota:nota||null});repairId=null;msg("#hOk","🔧 Enviada a reparación. Avisado el administrador.");await refreshHerr();}
+window.reportAveria=reportAveria;
 
 /* ADMIN */
 async function renderAdmin(){
@@ -288,23 +308,49 @@ function rFic(){
   $("#afbody").innerHTML=rows.map(r=>`<div class="row"><div class="t">${esc(r.n)} — ${r.tipo==="entrada"?'Entrada <span class="badge b-in">IN</span>':'Salida <span class="badge b-out">OUT</span>'}${r.lugar?' <span class="badge b-zona">'+esc(r.lugar)+'</span>':''}</div><div class="m">${r.lat?'📍 '+r.lat.toFixed(5)+', '+r.lng.toFixed(5)+(r.lugar?'':' · <a class="maps" target="_blank" href="https://maps.google.com/?q='+r.lat+','+r.lng+'">ver mapa</a>'):'Sin ubicación'}</div><div class="d">${fmt(r.ts)}</div></div>`).join("");
 }
 window.rFic=rFic;
+let aHSub="almacen";
 async function aHerr(){
-  $("#app").innerHTML=`<div class="card"><h2>Inventario de herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div id="ahbody"><p class="empty">Cargando…</p></div></div><div class="card"><h2>Herramientas por obra</h2><div id="aobra"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
-  const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("herramienta_id,trabajador_id,tipo,obra,created_at").order("created_at",{ascending:false}).limit(200)]);
-  window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);rInv();
-  const porObra={};window._inv.filter(h=>h.estado==="en_uso"&&h.obra_actual).forEach(h=>{(porObra[h.obra_actual]=porObra[h.obra_actual]||[]).push(h.nombre);});
-  const keys=Object.keys(porObra).sort();
-  $("#aobra").innerHTML=keys.length?keys.map(o=>`<div class="row"><div class="t">${esc(o)}</div><div class="m">${esc(porObra[o].join(", "))}</div></div>`).join(""):'<p class="empty">Ninguna herramienta asignada a una obra ahora mismo.</p>';
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Almacén</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparación</button><button id="ib" onclick="aHSet('baja')">Baja</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
+  const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("herramienta_id,trabajador_id,tipo,obra,nota,created_at").order("created_at",{ascending:false}).limit(200)]);
+  window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);aHSet(aHSub);
   const m=mov.error?[]:mov.data;
-  $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||"herr #"+x.herramienta_id))} — ${x.tipo==="coger"?"Cogida":x.tipo==="devolver"?"Devuelta":esc(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
+  $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||"herr #"+x.herramienta_id))} — ${movLabel(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}${x.nota?" · "+esc(x.nota):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
 }
+function aHSet(s){aHSub=s;const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib"};["ia","io","ir","ib"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
+window.aHSet=aHSet;
+function movLabel(t){return t==="coger"?"Cogida":t==="devolver"?"Devuelta":t==="averia"?"Enviada a reparación":t==="reparada"?"Reparada":t==="baja"?"Dada de baja":esc(t);}
+async function refreshInv(){const inv=await db.from("herramientas").select("*").order("nombre");window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);rInv();}
+window.refreshInv=refreshInv;
 function rInv(){
+  const body=$("#ahbody");if(!body)return;
   const q=(document.getElementById("ahfil")?.value||"").toLowerCase();
-  const list=(window._inv||[]).filter(h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")).toLowerCase().includes(q)));
-  const disp=list.filter(h=>h.estado==="disponible").length;
-  $("#ahbody").innerHTML=`<p class="count">${list.length} herramientas · ${disp} disponibles</p>`+list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.stock>1?" · stock "+h.stock:""}</div>${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}</div>`).join("");
+  const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")).toLowerCase().includes(q));
+  let list=(window._inv||[]).filter(match);
+  if(aHSub==="almacen"){
+    list=list.filter(h=>h.estado==="disponible");
+    body.innerHTML=`<p class="count">${list.length} en almacén</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.stock>1?" · stock "+h.stock:""}</div><button class="rowbtn" style="background:var(--red);color:#fff" onclick="admAveria(${h.id})">Enviar a reparación</button></div>`).join(""):'<p class="empty">Almacén vacío.</p>');
+  }else if(aHSub==="obra"){
+    list=list.filter(h=>h.estado==="en_uso");
+    if(!list.length){body.innerHTML='<p class="empty">Ninguna herramienta en obra.</p>';return;}
+    const g={};list.forEach(h=>{const k=h.obra_actual||"Sin obra / Taller";(g[k]=g[k]||[]).push(h);});
+    body.innerHTML=Object.keys(g).sort().map(o=>`<p class="count">${esc(o)}</p>`+g[o].map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div><div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}</div><button class="rowbtn grn" onclick="admDevolver(${h.id})">Devolver al almacén</button></div>`).join("")).join("");
+  }else if(aHSub==="reparacion"){
+    list=list.filter(h=>h.estado==="reparacion");
+    body.innerHTML=`<p class="count">${list.length} en reparación</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div>${h.nota_reparacion?`<div class="d">⚠️ ${esc(h.nota_reparacion)}</div>`:""}<div class="d">Reportada por: ${esc(condMap[h.responsable_id]||"—")}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="admReparada(${h.id})">Marcar reparada</button><button class="rowbtn" style="flex:1" onclick="admBaja(${h.id})">Dar de baja</button></div></div>`).join(""):'<p class="empty">Nada en reparación.</p>');
+  }else{
+    list=list.filter(h=>h.estado==="baja");
+    body.innerHTML=`<p class="count">${list.length} de baja</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div><button class="rowbtn" onclick="admReparada(${h.id})">Reactivar al almacén</button></div>`).join(""):'<p class="empty">Ninguna herramienta de baja.</p>');
+  }
 }
 window.rInv=rInv;
+async function admReparada(id){const r=await db.from("herramientas").update({estado:"disponible",responsable_id:null,obra_actual:null,nota_reparacion:null}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,tipo:"reparada"});msg("#hOk","✅ Reparada y de vuelta al almacén.");await refreshInv();}
+window.admReparada=admReparada;
+async function admBaja(id){const r=await db.from("herramientas").update({estado:"baja",responsable_id:null,obra_actual:null,nota_reparacion:null}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,tipo:"baja"});msg("#hOk","Herramienta dada de baja.");await refreshInv();}
+window.admBaja=admBaja;
+async function admDevolver(id){const r=await db.from("herramientas").update({estado:"disponible",responsable_id:null,obra_actual:null}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,tipo:"devolver"});msg("#hOk","✅ Devuelta al almacén.");await refreshInv();}
+window.admDevolver=admDevolver;
+async function admAveria(id){const r=await db.from("herramientas").update({estado:"reparacion",responsable_id:null,obra_actual:null,nota_reparacion:"Enviada por administración"}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,tipo:"averia"});msg("#hOk","🔧 Enviada a reparación.");await refreshInv();}
+window.admAveria=admAveria;
 
 function msg(sel,text,isErr){const e=$(sel);if(!e)return;e.textContent=text;e.style.display="block";if(!isErr)setTimeout(()=>e.style.display="none",2600);}
 
