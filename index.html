@@ -39,7 +39,7 @@ button.primary{width:100%;border:0;border-radius:8px;padding:16px;font-size:17px
 button.primary:active{background:var(--accent2)}
 button:disabled{opacity:.5}
 .subtabs{display:flex;gap:8px;margin-bottom:8px}
-.subtabs button{flex:1;border:0;border-radius:8px;padding:11px;font-size:13px;font-weight:800;background:#f0eeeb;color:#6b6862;cursor:pointer;text-transform:uppercase;letter-spacing:.5px}
+.subtabs button{flex:1;min-width:0;border:0;border-radius:8px;padding:11px 4px;font-size:12px;font-weight:800;background:#f0eeeb;color:#6b6862;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
 .subtabs button.active{background:var(--brand);color:#fff}
 .row{padding:14px 2px;border-bottom:2px solid #f0eeeb}
 .row:last-child{border-bottom:0}
@@ -322,7 +322,7 @@ function setAdmRepair(id){admRepairId=id;rInv();}
 window.setAdmRepair=setAdmRepair;
 function admRepairForm(id){return `<div style="margin-top:9px"><input id="arep${id}" placeholder="Motivo del fallo (obligatorio)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setAdmRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="admAveria(${id})">Enviar a reparación</button></div></div>`;}
 async function aHerr(){
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Almacén</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparación</button><button id="ib" onclick="aHSet('baja')">Baja</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Almacén</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
   const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("herramienta_id,trabajador_id,tipo,obra,nota,created_at").order("created_at",{ascending:false}).limit(200)]);
   window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);aHSet("almacen");
   const m=mov.error?[]:mov.data;
