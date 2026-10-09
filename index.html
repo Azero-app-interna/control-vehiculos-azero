@@ -75,6 +75,16 @@ button:disabled{opacity:.5}
 a.maps{color:var(--accent);text-decoration:none;font-size:12px}
 #hobrawrap{background:#fff4ec;border:1px solid #f6d3b3;border-radius:8px;padding:6px 12px 12px;margin-top:8px}
 #hobrawrap label{color:var(--accent)}
+.tilegrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.tile{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:6px;background:#fff;border:2px solid var(--line);border-radius:14px;padding:20px 12px;min-height:92px;cursor:pointer;font-family:inherit;box-shadow:var(--shadow);transition:border-color .12s,transform .05s}
+.tile:active{transform:scale(.97);border-color:var(--accent)}
+.tile .tn{font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;color:var(--ink);line-height:1.15}
+.tile .tc{font-size:12px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.4px}
+.tile .tchev{font-size:18px;color:var(--muted);font-weight:900}
+.backbar{display:flex;align-items:center;gap:8px;width:100%;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:15px 16px;font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;cursor:pointer;margin-bottom:12px;font-family:inherit;box-shadow:0 3px 10px #e2680f33}
+.backbar:active{background:var(--accent2)}
+.backbar .ar{font-size:20px;line-height:1}
+.crumb{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:2px 2px 8px}
 @keyframes flashreq{0%,100%{box-shadow:none;border-color:#d9d5cf}20%,60%{box-shadow:0 0 0 4px #c0392b40;border-color:var(--red)}40%,80%{box-shadow:0 0 0 2px #c0392b26;border-color:var(--red)}}
 input.flash,select.flash{animation:flashreq .8s ease;border-color:var(--red)!important}
 </style>
@@ -243,42 +253,57 @@ async function loadMisFichajes(){
 }
 
 /* HERRAMIENTAS (personal) */
-let herrList=[], hSub="almacen", repairId=null, hDetail=null;
+let herrList=[], hSub="almacen", repairId=null, hDetail=null, hFam=null;
 function obraOpts(){return obras.map(o=>{const t=esc(o.codigo+" · "+o.nombre);return `<option value="${t}">${t}</option>`;}).join("");}
+function familiaDe(h){if(h.categoria&&String(h.categoria).trim())return String(h.categoria).trim();const n=up(h.nombre||"");if(n.startsWith("TALADRO"))return "Taladros";if(n.startsWith("RADIAL"))return "Radiales";if(n.startsWith("ALARGO"))return "Alargos";if(n.startsWith("GRUPO SOLDAR"))return "Grupos de soldar";if(n.includes("SOPLETE"))return "Soplete";if(n.startsWith("MÁQUINA APRETAR")||n.startsWith("MAQUINA APRETAR"))return "Máquinas de apretar";if(n.startsWith("PISTOLA"))return "Pistolas de químico";if(n.startsWith("BATERÍA")||n.startsWith("BATERIA"))return "Baterías";if(n.startsWith("CARGADOR"))return "Cargadores";if(n.startsWith("CAJÓN")||n.startsWith("CAJON"))return "Cajones";return "Otros";}
 async function pHerr(){
   await loadBase().catch(()=>{});
   $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs"><button id="ha" onclick="hSet('almacen')">Almacén</button><button id="ho" onclick="hSet('obra')">En obra</button><button id="hr" onclick="hSet('reparacion')">Reparación</button></div><div id="hobrawrap" style="display:none"><label>⚠ Obra obligatoria — elígela antes de coger</label><select id="obra"><option value="">— Selecciona obra —</option><option value="Taller">Taller</option>${obraOpts()}</select></div><input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
   await refreshHerr();hSet("almacen");
 }
-function hSet(s){hSub=s;repairId=null;hDetail=null;const map={almacen:"ha",obra:"ho",reparacion:"hr"};["ha","ho","hr"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
+function hSet(s){hSub=s;repairId=null;hDetail=null;hFam=null;const map={almacen:"ha",obra:"ho",reparacion:"hr"};["ha","ho","hr"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
 window.hSet=hSet;
 function setRepair(id){repairId=id;renderHerr();}
 window.setRepair=setRepair;
+function openFam(enc){hFam=decodeURIComponent(enc);hDetail=null;repairId=null;renderHerr();}
+window.openFam=openFam;
 function openTipo(enc){hDetail=decodeURIComponent(enc);repairId=null;renderHerr();}
 window.openTipo=openTipo;
-function backTipos(){hDetail=null;repairId=null;renderHerr();}
-window.backTipos=backTipos;
+function backToFam(){hFam=null;hDetail=null;repairId=null;renderHerr();}
+window.backToFam=backToFam;
+function backToTipos(){hDetail=null;repairId=null;renderHerr();}
+window.backToTipos=backToTipos;
+function backBar(label,fn){return `<button class="backbar" onclick="${fn}"><span class="ar">‹</span> ${esc(up(label))}</button>`;}
 function unitRow(h){let a="";if(repairId===h.id){a=repairForm(h.id);}else if(h.estado==="disponible"){a=`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="en_uso"){const mine=h.responsable_id===worker.id?" (tú)":"";a=`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="reparacion"){a=`<div class="d">🔧 En reparación${h.nota_reparacion?" — "+esc(h.nota_reparacion):""}</div>`;}else{a='<div class="d">Dada de baja</div>';}return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${a}</div>`;}
 async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data;renderHerr();}
 function estBadge(e){return e==="disponible"?'<span class="badge b-ok">Disponible</span>':e==="en_uso"?'<span class="badge b-use">En uso</span>':e==="reparacion"?'<span class="badge b-rep">Reparación</span>':'<span class="badge b-rep">Baja</span>';}
 function hMeta(h){return `<div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>`;}
 function repairForm(id){return `<div style="margin-top:9px"><input id="rep${id}" placeholder="Motivo del fallo (obligatorio, ej. no arranca)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="reportAveria(${id})">Enviar a reparación</button></div></div>`;}
 function renderHerr(){
-  const obw=$("#hobrawrap");if(obw)obw.style.display=(hSub==="almacen"&&hDetail)?"block":"none";
   const q=($("#hfil")?.value||"").toLowerCase();
+  const obw=$("#hobrawrap");if(obw)obw.style.display=(hSub==="almacen"&&(q||(hFam&&hDetail)))?"block":"none";
   const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")).toLowerCase().includes(q));
   const body=$("#hbody");if(!body)return;
   if(hSub==="almacen"){
-    if(!hDetail){
-      const disp=herrList.filter(h=>h.estado==="disponible").filter(match);
-      const tot={},av={};herrList.forEach(h=>{tot[h.nombre]=(tot[h.nombre]||0)+1;});disp.forEach(h=>{av[h.nombre]=(av[h.nombre]||0)+1;});
+    const disp=herrList.filter(h=>h.estado==="disponible").filter(match);
+    if(q){
+      if(!disp.length){body.innerHTML='<p class="empty">Sin resultados para esa búsqueda.</p>';return;}
+      body.innerHTML=`<p class="count">${disp.length} resultado${disp.length!==1?"s":""}</p>`+disp.sort((a,b)=>(a.codigo||"").localeCompare(b.codigo||"")).map(unitRow).join("");
+    }else if(!hFam){
+      const fam={};disp.forEach(h=>{const f=familiaDe(h);fam[f]=(fam[f]||0)+1;});
+      const fams=Object.keys(fam).sort();
+      if(!fams.length){body.innerHTML='<p class="empty">No hay herramientas disponibles en el almacén.</p>';return;}
+      body.innerHTML=`<p class="count">${fams.length} familias · ${disp.length} disponibles</p><div class="tilegrid">`+fams.map(f=>`<button class="tile" onclick="openFam('${encodeURIComponent(f)}')"><div class="tn">${esc(up(f))}</div><div class="tc">${fam[f]} disp.</div></button>`).join("")+`</div>`;
+    }else if(!hDetail){
+      const inFam=disp.filter(h=>familiaDe(h)===hFam);
+      const tot={},av={};herrList.filter(h=>familiaDe(h)===hFam).forEach(h=>{tot[h.nombre]=(tot[h.nombre]||0)+1;});inFam.forEach(h=>{av[h.nombre]=(av[h.nombre]||0)+1;});
       const tipos=Object.keys(av).sort();
-      if(!tipos.length){body.innerHTML='<p class="empty">No hay herramientas disponibles en el almacén.</p>';return;}
-      body.innerHTML=`<p class="count">${tipos.length} tipos · ${disp.length} unidades disponibles</p>`+tipos.map(n=>`<div class="row" style="cursor:pointer" onclick="openTipo('${encodeURIComponent(n)}')"><div class="flex"><div><div class="t">${esc(up(n))}</div><div class="m">${av[n]} disponible${av[n]>1?"s":""}${tot[n]>av[n]?" · "+tot[n]+" en total":""}</div></div><div style="font-size:20px;color:var(--muted);align-self:center">›</div></div></div>`).join("");
+      if(!tipos.length){body.innerHTML=backBar("Volver a familias","backToFam()")+'<p class="empty">No hay unidades disponibles en esta familia.</p>';return;}
+      body.innerHTML=backBar("Volver a familias","backToFam()")+`<div class="crumb">${esc(up(hFam))} · ${inFam.length} disponibles</div><div class="tilegrid">`+tipos.map(n=>`<button class="tile" onclick="openTipo('${encodeURIComponent(n)}')"><div class="tn">${esc(up(n))}</div><div class="tc">${av[n]} disp.${tot[n]>av[n]?" / "+tot[n]:""}</div></button>`).join("")+`</div>`;
     }else{
       const units=herrList.filter(h=>h.nombre===hDetail).sort((a,b)=>(a.codigo||"").localeCompare(b.codigo||""));
       const dispN=units.filter(h=>h.estado==="disponible").length;
-      body.innerHTML=`<div class="row" style="cursor:pointer" onclick="backTipos()"><div class="t" style="color:var(--accent)">‹ Volver a tipos</div></div><p class="count">${esc(up(hDetail))} · ${dispN} disponible${dispN!==1?"s":""} de ${units.length}</p>`+units.map(unitRow).join("");
+      body.innerHTML=backBar("Volver a "+hFam,"backToTipos()")+`<div class="crumb">${esc(up(hDetail))} · ${dispN} disponible${dispN!==1?"s":""} de ${units.length}</div>`+units.map(unitRow).join("");
     }
   }else if(hSub==="obra"){
     const list=herrList.filter(h=>h.estado==="en_uso").filter(match);
