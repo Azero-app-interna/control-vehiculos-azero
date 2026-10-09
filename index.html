@@ -221,9 +221,9 @@ window.devolver=devolver;
 
 /* FICHAJE */
 function pFic(){
-  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
   if(!zonas.length)loadBase().catch(()=>{});
-  loadMisFichajes();
+  loadMisFichajes();loadVac();
 }
 async function fichar(tipo){
   const g=$("#gps");g.style.display="block";g.textContent="📍 Obteniendo ubicación…";
@@ -251,6 +251,40 @@ async function loadMisFichajes(){
   if(!data.length){$("#misFic").innerHTML='<p class="empty">Aún no tienes fichajes.</p>';return;}
   $("#misFic").innerHTML=data.map(f=>`<div class="row"><div class="t">${f.tipo==="entrada"?'Entrada <span class="badge b-in">IN</span>':'Salida <span class="badge b-out">OUT</span>'}</div><div class="m">${fLugar(f)}</div><div class="d">${fmt(f.created_at)}</div></div>`).join("");
 }
+
+/* VACACIONES */
+const DIAS_VAC_ANIO=30;
+let vacMine=[];
+function fmtD(d){if(!d)return "";const x=new Date(String(d).slice(0,10)+"T00:00:00");return x.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"2-digit"});}
+function diasNaturales(ini,fin){const a=new Date(ini+"T00:00:00"),b=new Date(fin+"T00:00:00");return Math.round((b-a)/86400000)+1;}
+function vacBadge(e){return e==="pendiente"?'<span class="badge b-use">Pendiente</span>':e==="aprobada"?'<span class="badge b-ok">Aprobada</span>':'<span class="badge b-rep">Rechazada</span>';}
+function vacAprobadas(list,tid){const y=new Date().getFullYear();return list.filter(v=>v.trabajador_id===tid&&v.estado==="aprobada"&&new Date(String(v.fecha_inicio).slice(0,10)+"T00:00:00").getFullYear()===y).reduce((s,v)=>s+(v.dias||0),0);}
+async function loadVac(){const {data,error}=await db.from("vacaciones").select("*").eq("trabajador_id",worker.id).order("fecha_inicio",{ascending:false});vacMine=error?[]:data;renderVac();}
+function renderVac(){
+  const y=new Date().getFullYear();
+  const aprob=vacAprobadas(vacMine,worker.id);
+  const pend=vacMine.filter(v=>v.estado==="pendiente").reduce((s,v)=>s+(v.dias||0),0);
+  const disp=DIAS_VAC_ANIO-aprob;
+  const s=$("#vacSummary");if(s)s.innerHTML=`Te quedan <b style="color:var(--green)">${disp}</b> de ${DIAS_VAC_ANIO} días naturales (${y}).${pend?` <b style="color:var(--amber)">${pend} pendiente${pend>1?"s":""} de aprobar.</b>`:""}`;
+  const m=$("#vacMine");if(m)m.innerHTML=vacMine.length?vacMine.map(v=>`<div class="row"><div class="t">${fmtD(v.fecha_inicio)} → ${fmtD(v.fecha_fin)} ${vacBadge(v.estado)}</div><div class="m">${v.dias} día${v.dias>1?"s":""} naturales${v.nota?" · "+esc(v.nota):""}</div></div>`).join(""):'<p class="empty">Aún no has solicitado vacaciones.</p>';
+}
+function openVacForm(){const f=$("#vacForm"),b=$("#vacBtn");if(b)b.style.display="none";if(f)f.innerHTML=`<label>Desde</label><input type="date" id="vIni"><label>Hasta</label><input type="date" id="vFin"><input id="vNota" placeholder="Motivo (opcional)" style="margin-top:10px"><div style="display:flex;gap:8px;margin-top:10px"><button class="rowbtn" style="flex:1" onclick="closeVacForm()">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="pedirVac()">Enviar solicitud</button></div>`;}
+window.openVacForm=openVacForm;
+function closeVacForm(){const f=$("#vacForm");if(f)f.innerHTML="";const b=$("#vacBtn");if(b)b.style.display="";}
+window.closeVacForm=closeVacForm;
+async function pedirVac(){
+  const ini=$("#vIni")?.value, fin=$("#vFin")?.value;
+  if(!ini||!fin)return msg("#vacErr","Elige las fechas de inicio y fin.",true);
+  if(fin<ini)return msg("#vacErr","La fecha de fin no puede ser anterior al inicio.",true);
+  const dias=diasNaturales(ini,fin);
+  const disp=DIAS_VAC_ANIO-vacAprobadas(vacMine,worker.id);
+  if(dias>disp)return msg("#vacErr","No te quedan tantos días: pides "+dias+" y te quedan "+disp+".",true);
+  const nota=($("#vNota")?.value||"").trim();
+  const r=await db.from("vacaciones").insert({trabajador_id:worker.id,fecha_inicio:ini,fecha_fin:fin,dias,estado:"pendiente",nota:nota||null});
+  if(r.error)return msg("#vacErr",r.error.message,true);
+  closeVacForm();msg("#vacOk","✅ Solicitud enviada ("+dias+" días). Pendiente de aprobación.");await loadVac();
+}
+window.pedirVac=pedirVac;
 
 /* HERRAMIENTAS (personal) */
 let herrList=[], hSub="almacen", repairId=null, hDetail=null, hFam=null;
@@ -404,18 +438,45 @@ function rVeh(){
   $("#avbody").innerHTML=rows.map(r=>`<div class="row"><div class="t">${esc(r.c)} → ${esc(r.vn)} <span class="badge b-veh">${esc(r.mat)}</span></div><div class="m">Cogido: ${fmt(r.ts)}</div><div class="d">${r.dev?"Devuelto: "+fmt(r.dev):'<b style="color:var(--amber)">Aún en uso</b>'}</div></div>`).join("");
 }
 window.rVeh=rVeh;
+let aFicSub="fichajes";
 async function aFic(){
-  $("#app").innerHTML=`<div class="card"><h2>Fichajes de todo el personal</h2><input id="affil" placeholder="Buscar trabajador, tipo o lugar" oninput="rFic()"><div id="afbody"><p class="empty">Cargando…</p></div></div>`;
-  const {data,error}=await db.from("fichajes").select("trabajador_id,tipo,lat,lng,precision_m,lugar,created_at").order("created_at",{ascending:false}).limit(500);
-  window._fics=error?[]:data;rFic();
+  $("#app").innerHTML=`<div class="card"><h2>Fichajes y vacaciones</h2><div class="subtabs"><button id="af1" onclick="aFicSet('fichajes')">Fichajes</button><button id="af2" onclick="aFicSet('vac')">Vacaciones</button></div><div id="afwrap"><p class="empty">Cargando…</p></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div>`;
+  const [f,v]=await Promise.all([
+    db.from("fichajes").select("trabajador_id,tipo,lat,lng,precision_m,lugar,created_at").order("created_at",{ascending:false}).limit(500),
+    db.from("vacaciones").select("*").order("created_at",{ascending:false}).limit(500)
+  ]);
+  window._fics=f.error?[]:f.data; window._vac=v.error?[]:v.data;
+  aFicSet("fichajes");
 }
+function aFicSet(s){aFicSub=s;["af1","af2"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===(s==="fichajes"?"af1":"af2"));});if(s==="fichajes")renderAFic();else renderAVac();}
+window.aFicSet=aFicSet;
+function renderAFic(){const wrap=$("#afwrap");if(!wrap)return;wrap.innerHTML=`<input id="affil" placeholder="Buscar trabajador, tipo o lugar" oninput="rFic()"><div id="afbody"><p class="empty">Cargando…</p></div>`;rFic();}
 function rFic(){
   const q=(document.getElementById("affil")?.value||"").toLowerCase();
   const rows=(window._fics||[]).map(f=>({n:condMap[f.trabajador_id]||"?",tipo:f.tipo,lat:f.lat,lng:f.lng,lugar:f.lugar,ts:f.created_at})).filter(r=>!q||(r.n+" "+r.tipo+" "+(r.lugar||"")).toLowerCase().includes(q));
-  if(!rows.length){$("#afbody").innerHTML='<p class="empty">Sin fichajes.</p>';return;}
-  $("#afbody").innerHTML=rows.map(r=>`<div class="row"><div class="t">${esc(r.n)} — ${r.tipo==="entrada"?'Entrada <span class="badge b-in">IN</span>':'Salida <span class="badge b-out">OUT</span>'}${r.lugar?' <span class="badge b-zona">'+esc(r.lugar)+'</span>':''}</div><div class="m">${r.lat?'📍 '+r.lat.toFixed(5)+', '+r.lng.toFixed(5)+(r.lugar?'':' · <a class="maps" target="_blank" href="https://maps.google.com/?q='+r.lat+','+r.lng+'">ver mapa</a>'):'Sin ubicación'}</div><div class="d">${fmt(r.ts)}</div></div>`).join("");
+  const body=$("#afbody");if(!body)return;
+  if(!rows.length){body.innerHTML='<p class="empty">Sin fichajes.</p>';return;}
+  body.innerHTML=rows.map(r=>`<div class="row"><div class="t">${esc(r.n)} — ${r.tipo==="entrada"?'Entrada <span class="badge b-in">IN</span>':'Salida <span class="badge b-out">OUT</span>'}${r.lugar?' <span class="badge b-zona">'+esc(r.lugar)+'</span>':''}</div><div class="m">${r.lat?'📍 '+r.lat.toFixed(5)+', '+r.lng.toFixed(5)+(r.lugar?'':' · <a class="maps" target="_blank" href="https://maps.google.com/?q='+r.lat+','+r.lng+'">ver mapa</a>'):'Sin ubicación'}</div><div class="d">${fmt(r.ts)}</div></div>`).join("");
 }
 window.rFic=rFic;
+function renderAVac(){
+  const wrap=$("#afwrap");if(!wrap)return;
+  const list=window._vac||[];
+  const pend=list.filter(v=>v.estado==="pendiente");
+  const resto=list.filter(v=>v.estado!=="pendiente");
+  let html=`<p class="count">Pendientes de aprobar (${pend.length})</p>`;
+  html+=pend.length?pend.map(v=>`<div class="row"><div class="t">${esc(condMap[v.trabajador_id]||"—")} · ${v.dias} día${v.dias>1?"s":""}</div><div class="m">${fmtD(v.fecha_inicio)} → ${fmtD(v.fecha_fin)}${v.nota?" · "+esc(v.nota):""}</div><div class="d">Le quedan ${DIAS_VAC_ANIO-vacAprobadas(list,v.trabajador_id)} de ${DIAS_VAC_ANIO} días</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="resolverVac(${v.id},'aprobada')">Aprobar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="resolverVac(${v.id},'rechazada')">Rechazar</button></div></div>`).join(""):'<p class="empty">No hay solicitudes pendientes.</p>';
+  html+=`<p class="count">Histórico</p>`;
+  html+=resto.length?resto.map(v=>`<div class="row"><div class="t">${esc(condMap[v.trabajador_id]||"—")} ${vacBadge(v.estado)}</div><div class="m">${fmtD(v.fecha_inicio)} → ${fmtD(v.fecha_fin)} · ${v.dias} día${v.dias>1?"s":""}</div></div>`).join(""):'<p class="empty">Sin histórico.</p>';
+  wrap.innerHTML=html;
+}
+async function resolverVac(id,estado){
+  const r=await db.from("vacaciones").update({estado,resuelta_at:new Date().toISOString()}).eq("id",id);
+  if(r.error)return msg("#vacErr",r.error.message,true);
+  msg("#vacOk",estado==="aprobada"?"✅ Vacaciones aprobadas.":"Solicitud rechazada.");
+  const nv=await db.from("vacaciones").select("*").order("created_at",{ascending:false}).limit(500);window._vac=nv.error?[]:nv.data;renderAVac();
+}
+window.resolverVac=resolverVac;
 let aHSub="almacen", admRepairId=null;
 function setAdmRepair(id){admRepairId=id;rInv();}
 window.setAdmRepair=setAdmRepair;
