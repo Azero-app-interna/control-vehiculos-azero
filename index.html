@@ -161,10 +161,10 @@ async function loadBase(){
 /* PERSONAL */
 function startPersonal(){
   $("#who").innerHTML=`<b>${esc(worker.nombre)}</b><span>Tu acceso personal</span>`;
-  $("#tabs").innerHTML=`<button data-t="veh" onclick="pGo('veh')">Vehículos</button><button data-t="fic" onclick="pGo('fic')">Fichaje</button><button data-t="herr" onclick="pGo('herr')">Herram.</button>`;
+  $("#tabs").innerHTML=`<button data-t="veh" onclick="pGo('veh')">Vehíc.</button><button data-t="fic" onclick="pGo('fic')">Fichaje</button><button data-t="herr" onclick="pGo('herr')">Herram.</button><button data-t="epi" onclick="pGo('epi')">EPIs</button>`;
   pGo("veh");
 }
-function pGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")pVeh();if(t==="fic")pFic();if(t==="herr")pHerr();}
+function pGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")pVeh();if(t==="fic")pFic();if(t==="herr")pHerr();if(t==="epi")pEpi();}
 window.pGo=pGo;
 
 let vSub="coger";
@@ -243,29 +243,43 @@ async function loadMisFichajes(){
 }
 
 /* HERRAMIENTAS (personal) */
-let herrList=[], hSub="almacen", repairId=null;
+let herrList=[], hSub="almacen", repairId=null, hDetail=null;
 function obraOpts(){return obras.map(o=>{const t=esc(o.codigo+" · "+o.nombre);return `<option value="${t}">${t}</option>`;}).join("");}
 async function pHerr(){
   await loadBase().catch(()=>{});
   $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs"><button id="ha" onclick="hSet('almacen')">Almacén</button><button id="ho" onclick="hSet('obra')">En obra</button><button id="hr" onclick="hSet('reparacion')">Reparación</button></div><div id="hobrawrap" style="display:none"><label>⚠ Obra obligatoria — elígela antes de coger</label><select id="obra"><option value="">— Selecciona obra —</option><option value="Taller">Taller</option>${obraOpts()}</select></div><input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
   await refreshHerr();hSet("almacen");
 }
-function hSet(s){hSub=s;repairId=null;const map={almacen:"ha",obra:"ho",reparacion:"hr"};["ha","ho","hr"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
+function hSet(s){hSub=s;repairId=null;hDetail=null;const map={almacen:"ha",obra:"ho",reparacion:"hr"};["ha","ho","hr"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
 window.hSet=hSet;
 function setRepair(id){repairId=id;renderHerr();}
 window.setRepair=setRepair;
+function openTipo(enc){hDetail=decodeURIComponent(enc);repairId=null;renderHerr();}
+window.openTipo=openTipo;
+function backTipos(){hDetail=null;repairId=null;renderHerr();}
+window.backTipos=backTipos;
+function unitRow(h){let a="";if(repairId===h.id){a=repairForm(h.id);}else if(h.estado==="disponible"){a=`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="en_uso"){const mine=h.responsable_id===worker.id?" (tú)":"";a=`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="reparacion"){a=`<div class="d">🔧 En reparación${h.nota_reparacion?" — "+esc(h.nota_reparacion):""}</div>`;}else{a='<div class="d">Dada de baja</div>';}return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${a}</div>`;}
 async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data;renderHerr();}
 function estBadge(e){return e==="disponible"?'<span class="badge b-ok">Disponible</span>':e==="en_uso"?'<span class="badge b-use">En uso</span>':e==="reparacion"?'<span class="badge b-rep">Reparación</span>':'<span class="badge b-rep">Baja</span>';}
 function hMeta(h){return `<div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>`;}
 function repairForm(id){return `<div style="margin-top:9px"><input id="rep${id}" placeholder="Motivo del fallo (obligatorio, ej. no arranca)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="reportAveria(${id})">Enviar a reparación</button></div></div>`;}
 function renderHerr(){
-  const obw=$("#hobrawrap");if(obw)obw.style.display=hSub==="almacen"?"block":"none";
+  const obw=$("#hobrawrap");if(obw)obw.style.display=(hSub==="almacen"&&hDetail)?"block":"none";
   const q=($("#hfil")?.value||"").toLowerCase();
   const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")).toLowerCase().includes(q));
   const body=$("#hbody");if(!body)return;
   if(hSub==="almacen"){
-    const list=herrList.filter(h=>h.estado==="disponible").filter(match);
-    body.innerHTML=list.length?(`<p class="count">${list.length} en almacén</p>`+list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div>${hMeta(h)}${repairId===h.id?repairForm(h.id):`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}</div>`).join("")):'<p class="empty">No hay herramientas en el almacén.</p>';
+    if(!hDetail){
+      const disp=herrList.filter(h=>h.estado==="disponible").filter(match);
+      const tot={},av={};herrList.forEach(h=>{tot[h.nombre]=(tot[h.nombre]||0)+1;});disp.forEach(h=>{av[h.nombre]=(av[h.nombre]||0)+1;});
+      const tipos=Object.keys(av).sort();
+      if(!tipos.length){body.innerHTML='<p class="empty">No hay herramientas disponibles en el almacén.</p>';return;}
+      body.innerHTML=`<p class="count">${tipos.length} tipos · ${disp.length} unidades disponibles</p>`+tipos.map(n=>`<div class="row" style="cursor:pointer" onclick="openTipo('${encodeURIComponent(n)}')"><div class="flex"><div><div class="t">${esc(up(n))}</div><div class="m">${av[n]} disponible${av[n]>1?"s":""}${tot[n]>av[n]?" · "+tot[n]+" en total":""}</div></div><div style="font-size:20px;color:var(--muted);align-self:center">›</div></div></div>`).join("");
+    }else{
+      const units=herrList.filter(h=>h.nombre===hDetail).sort((a,b)=>(a.codigo||"").localeCompare(b.codigo||""));
+      const dispN=units.filter(h=>h.estado==="disponible").length;
+      body.innerHTML=`<div class="row" style="cursor:pointer" onclick="backTipos()"><div class="t" style="color:var(--accent)">‹ Volver a tipos</div></div><p class="count">${esc(up(hDetail))} · ${dispN} disponible${dispN!==1?"s":""} de ${units.length}</p>`+units.map(unitRow).join("");
+    }
   }else if(hSub==="obra"){
     const list=herrList.filter(h=>h.estado==="en_uso").filter(match);
     if(!list.length){body.innerHTML='<p class="empty">No hay herramientas en obra ahora mismo.</p>';return;}
@@ -283,15 +297,75 @@ window.devolverHerr=devolverHerr;
 async function reportAveria(id){const nota=($("#rep"+id)?.value||"").trim();if(!nota){flashInput("rep"+id);return msg("#hErr","Explica el motivo del fallo antes de enviar a reparación.",true);}const r1=await db.from("herramientas").update({estado:"reparacion",responsable_id:worker.id,obra_actual:null,nota_reparacion:nota}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"averia",nota});repairId=null;msg("#hOk","🔧 Enviada a reparación. Avisado el administrador.");await refreshHerr();}
 window.reportAveria=reportAveria;
 
+/* EPIS Y ROPA (personal) */
+let epiCat=[], epiMias=[], eSub="solicitar", epiReqId=null;
+async function pEpi(){
+  $("#app").innerHTML=`<div class="card"><h2>EPIs y ropa</h2><p class="hint">Solicita equipos de protección o ropa de trabajo. Cuando te los entreguen, firma la recepción desde «Mis EPIs».</p><div class="subtabs"><button id="es" onclick="eSet('solicitar')">Solicitar</button><button id="em" onclick="eSet('mias')">Mis EPIs</button></div><div id="ebody"><p class="empty">Cargando…</p></div><div id="eOk" class="ok"></div><div id="eErr" class="error"></div></div>`;
+  await refreshEpi();eSet("solicitar");
+}
+async function refreshEpi(){
+  const [c,m]=await Promise.all([
+    db.from("epis").select("*").order("categoria").order("nombre"),
+    db.from("epi_solicitudes").select("*").eq("trabajador_id",worker.id).order("created_at",{ascending:false})
+  ]);
+  epiCat=c.error?[]:c.data; epiMias=m.error?[]:m.data; renderEpi();
+}
+function eSet(s){eSub=s;epiReqId=null;["es","em"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===(s==="solicitar"?"es":"em"));});renderEpi();}
+window.eSet=eSet;
+function openReq(id){epiReqId=id;renderEpi();}
+window.openReq=openReq;
+function epiEstado(e){return e==="solicitado"?'<span class="badge b-use">Solicitado</span>':e==="entregado"?'<span class="badge b-zona">Por firmar</span>':e==="firmado"?'<span class="badge b-ok">Recibido</span>':'<span class="badge b-rep">Rechazado</span>';}
+function reqForm(it){return `<div style="margin-top:9px"><div style="display:flex;gap:8px"><input id="talla${it.id}" placeholder="Talla (si aplica)" value="${esc(it.talla||"")}" style="flex:1;font-size:14px;padding:11px"><input id="cant${it.id}" type="number" min="1" value="1" style="width:72px;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="openReq(null)">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="pedirEpi(${it.id})">Enviar solicitud</button></div></div>`;}
+function renderEpi(){
+  const body=$("#ebody");if(!body)return;
+  if(eSub==="solicitar"){
+    const activos=epiCat.filter(x=>x.activo!==false);
+    if(!activos.length){body.innerHTML='<p class="empty">No hay EPIs ni ropa en el catálogo todavía.</p>';return;}
+    const g={epi:[],ropa:[]};activos.forEach(x=>g[x.categoria==="ropa"?"ropa":"epi"].push(x));
+    let html="";
+    [["epi","EPIs"],["ropa","Ropa de trabajo"]].forEach(([k,lab])=>{
+      if(!g[k].length)return;
+      html+=`<p class="count">${lab}</p>`+g[k].map(it=>`<div class="row"><div class="t">${esc(up(it.nombre))}</div><div class="m">${it.stock>0?"Disponible":"Sin stock (se pedirá)"}${it.talla?" · talla "+esc(it.talla):""}</div>${epiReqId===it.id?reqForm(it):`<button class="rowbtn blue" onclick="openReq(${it.id})">Solicitar</button>`}</div>`).join("");
+    });
+    body.innerHTML=html;
+  }else{
+    if(!epiMias.length){body.innerHTML='<p class="empty">Aún no has solicitado ningún EPI.</p>';return;}
+    const nm={};epiCat.forEach(x=>nm[x.id]=x);
+    body.innerHTML=epiMias.map(s=>{
+      const it=nm[s.epi_id];const nombre=it?it.nombre:("EPI #"+s.epi_id);
+      let extra="";
+      if(s.estado==="entregado")extra=`<button class="rowbtn grn" onclick="firmarEpi(${s.id})">✔ Firmar recepción</button>`;
+      else if(s.estado==="firmado")extra=`<div class="d">✔ Recibido y firmado el ${fmt(s.fecha_firma)}</div>`;
+      else if(s.estado==="solicitado")extra=`<div class="d">Pendiente de entrega</div>`;
+      else extra=`<div class="d">Solicitud rechazada${s.nota?" — "+esc(s.nota):""}</div>`;
+      return `<div class="row"><div class="t">${esc(up(nombre))} ${epiEstado(s.estado)}</div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Solicitado: ${fmt(s.fecha_solicitud||s.created_at)}</div>${extra}</div>`;
+    }).join("");
+  }
+}
+async function pedirEpi(id){
+  const talla=($("#talla"+id)?.value||"").trim();
+  const cant=Math.max(1,parseInt($("#cant"+id)?.value||"1",10)||1);
+  const r=await db.from("epi_solicitudes").insert({epi_id:id,trabajador_id:worker.id,cantidad:cant,talla:talla||null,estado:"solicitado"});
+  if(r.error)return msg("#eErr",r.error.message,true);
+  epiReqId=null;msg("#eOk","✅ Solicitud enviada. Administración la gestionará.");await refreshEpi();
+}
+window.pedirEpi=pedirEpi;
+async function firmarEpi(id){
+  const r=await db.from("epi_solicitudes").update({estado:"firmado",fecha_firma:new Date().toISOString()}).eq("id",id);
+  if(r.error)return msg("#eErr",r.error.message,true);
+  msg("#eOk","✅ Recepción firmada. Gracias.");await refreshEpi();
+}
+window.firmarEpi=firmarEpi;
+
 /* ADMIN */
 async function renderAdmin(){
   $("#who").innerHTML=`<b>Administrador</b><button class="linkbtn" onclick="adminLogout()">Cerrar sesión</button>`;
-  $("#tabs").innerHTML=`<button data-t="veh" onclick="aGo('veh')">Vehículos</button><button data-t="fic" onclick="aGo('fic')">Fichajes</button><button data-t="herr" onclick="aGo('herr')">Herram.</button>`;
+  $("#tabs").innerHTML=`<button data-t="veh" onclick="aGo('veh')">Vehíc.</button><button data-t="fic" onclick="aGo('fic')">Fichaje</button><button data-t="herr" onclick="aGo('herr')">Herram.</button><button data-t="epi" onclick="aGo('epi')">EPIs</button>`;
   $("#app").innerHTML='<div class="card"><p class="empty">Cargando…</p></div>';
   try{await loadBase();}catch(e){}
   aGo("veh");
 }
-function aGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();}
+function aGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();if(t==="epi")aEpi();}
 window.aGo=aGo;
 async function aVeh(){
   $("#app").innerHTML=`<div class="card"><h2>Historial de vehículos</h2><p class="hint">Quién ha cogido y devuelto cada vehículo.</p><input id="afil" placeholder="Buscar conductor, vehículo o matrícula" oninput="rVeh()"><div id="avbody"><p class="empty">Cargando…</p></div></div>`;
@@ -363,6 +437,72 @@ async function admDevolver(id){const r=await db.from("herramientas").update({est
 window.admDevolver=admDevolver;
 async function admAveria(id){const nota=($("#arep"+id)?.value||"").trim();if(!nota){flashInput("arep"+id);return msg("#hErr","Explica el motivo antes de enviar a reparación.",true);}const r=await db.from("herramientas").update({estado:"reparacion",responsable_id:null,obra_actual:null,nota_reparacion:nota}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,tipo:"averia",nota});admRepairId=null;msg("#hOk","🔧 Enviada a reparación.");await refreshInv();}
 window.admAveria=admAveria;
+
+/* EPIS Y ROPA (admin) */
+let aESub="solicitudes";
+async function aEpi(){
+  $("#app").innerHTML=`<div class="card"><h2>EPIs y ropa</h2><div class="subtabs"><button id="eas" onclick="aESet('solicitudes')">Solicitudes</button><button id="eastk" onclick="aESet('stock')">Stock</button><button id="eadoc" onclick="aESet('doc')">Entregas</button></div><div id="aebody"><p class="empty">Cargando…</p></div><div id="eOk" class="ok"></div><div id="eErr" class="error"></div></div>`;
+  await refreshAEpi();aESet("solicitudes");
+}
+async function refreshAEpi(){
+  const [c,s]=await Promise.all([
+    db.from("epis").select("*").order("categoria").order("nombre"),
+    db.from("epi_solicitudes").select("*").order("created_at",{ascending:false}).limit(300)
+  ]);
+  window._epiCat=c.error?[]:c.data; window._epiSol=s.error?[]:s.data;
+  window._epiMap={};window._epiCat.forEach(x=>window._epiMap[x.id]=x);
+  renderAEpi();
+}
+function aESet(s){aESub=s;["eas","eastk","eadoc"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===(s==="solicitudes"?"eas":s==="stock"?"eastk":"eadoc"));});renderAEpi();}
+window.aESet=aESet;
+function renderAEpi(){
+  const body=$("#aebody");if(!body)return;
+  const cat=window._epiCat||[], sol=window._epiSol||[], map=window._epiMap||{};
+  if(aESub==="solicitudes"){
+    const pend=sol.filter(s=>s.estado==="solicitado"), entr=sol.filter(s=>s.estado==="entregado");
+    let html=`<p class="count">Pendientes de entregar (${pend.length})</p>`;
+    html+=pend.length?pend.map(s=>{const it=map[s.epi_id];return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} → ${esc(up(it?it.nombre:"EPI #"+s.epi_id))}</div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}${it?" · stock "+it.stock:""}</div><div class="d">Solicitado: ${fmt(s.fecha_solicitud||s.created_at)}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="entregarEpi(${s.id})">Marcar entregado</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="rechazarEpi(${s.id})">Rechazar</button></div></div>`;}).join(""):'<p class="empty">No hay solicitudes pendientes.</p>';
+    html+=`<p class="count">Entregados · esperando firma (${entr.length})</p>`;
+    html+=entr.length?entr.map(s=>{const it=map[s.epi_id];return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} → ${esc(up(it?it.nombre:"EPI #"+s.epi_id))} <span class="badge b-zona">Por firmar</span></div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Entregado: ${fmt(s.fecha_entrega)}</div></div>`;}).join(""):'<p class="empty">Nada pendiente de firma.</p>';
+    body.innerHTML=html;
+  }else if(aESub==="stock"){
+    let html=`<div class="row" style="background:#faf6f2;border-radius:8px;padding:12px"><div class="t">Añadir artículo</div><div style="display:flex;gap:8px;margin-top:8px"><input id="newNom" placeholder="Nombre (ej. Guantes anticorte)" style="flex:2;font-size:14px;padding:11px"><input id="newTal" placeholder="Talla" style="flex:1;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px"><select id="newCat" style="flex:1;font-size:14px;padding:11px"><option value="epi">EPI</option><option value="ropa">Ropa</option></select><input id="newStk" type="number" min="0" value="0" style="width:80px;font-size:14px;padding:11px"><button class="rowbtn blue" onclick="addEpi()">Añadir</button></div></div>`;
+    [["epi","EPIs"],["ropa","Ropa de trabajo"]].forEach(([k,lab])=>{
+      const list=cat.filter(x=>(x.categoria==="ropa"?"ropa":"epi")===k);
+      if(!list.length)return;
+      html+=`<p class="count">${lab}</p>`+list.map(it=>`<div class="row"><div class="t">${esc(up(it.nombre))}${it.activo===false?' <span class="badge b-rep">Inactivo</span>':""}</div><div class="m">${it.talla?"talla "+esc(it.talla)+" · ":""}stock actual: <b>${it.stock}</b></div><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="rowbtn" onclick="stockEpi(${it.id},-1)">−1</button><button class="rowbtn" onclick="stockEpi(${it.id},1)">+1</button><input id="setstk${it.id}" type="number" min="0" placeholder="fijar" style="width:76px;font-size:14px;padding:9px"><button class="rowbtn" onclick="setStock(${it.id})">Fijar</button></div></div>`).join("");
+    });
+    body.innerHTML=html;
+  }else{
+    const firm=sol.filter(s=>s.estado==="firmado");
+    body.innerHTML=`<p class="hint" style="margin-bottom:8px">Comprobante de recepción de EPI firmado por cada trabajador (documentación para la empresa).</p><p class="count">Firmadas (${firm.length})</p>`+(firm.length?firm.map(s=>{const it=map[s.epi_id];return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} — ${esc(up(it?it.nombre:"EPI #"+s.epi_id))} <span class="badge b-ok">Firmado</span></div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Entregado: ${fmt(s.fecha_entrega)} · Firmado: ${fmt(s.fecha_firma)}</div></div>`;}).join(""):'<p class="empty">Aún no hay entregas firmadas.</p>');
+  }
+}
+async function entregarEpi(id){
+  const s=(window._epiSol||[]).find(x=>x.id===id);if(!s)return;
+  const it=(window._epiMap||{})[s.epi_id];
+  if(it){const nuevo=Math.max(0,(it.stock||0)-(s.cantidad||1));await db.from("epis").update({stock:nuevo}).eq("id",it.id);}
+  const r=await db.from("epi_solicitudes").update({estado:"entregado",fecha_entrega:new Date().toISOString()}).eq("id",id);
+  if(r.error)return msg("#eErr",r.error.message,true);
+  msg("#eOk","✅ Marcado como entregado. El trabajador debe firmar la recepción.");await refreshAEpi();
+}
+window.entregarEpi=entregarEpi;
+async function rechazarEpi(id){const r=await db.from("epi_solicitudes").update({estado:"rechazado"}).eq("id",id);if(r.error)return msg("#eErr",r.error.message,true);msg("#eOk","Solicitud rechazada.");await refreshAEpi();}
+window.rechazarEpi=rechazarEpi;
+async function addEpi(){
+  const nom=($("#newNom")?.value||"").trim();if(!nom){flashInput("newNom");return;}
+  const tal=($("#newTal")?.value||"").trim();
+  const cat=$("#newCat")?.value||"epi";
+  const stk=Math.max(0,parseInt($("#newStk")?.value||"0",10)||0);
+  const r=await db.from("epis").insert({nombre:nom,categoria:cat,talla:tal||null,stock:stk,activo:true});
+  if(r.error)return msg("#eErr",r.error.message,true);
+  msg("#eOk","✅ Artículo añadido.");await refreshAEpi();
+}
+window.addEpi=addEpi;
+async function stockEpi(id,delta){const it=(window._epiMap||{})[id];if(!it)return;const nuevo=Math.max(0,(it.stock||0)+delta);const r=await db.from("epis").update({stock:nuevo}).eq("id",id);if(r.error)return msg("#eErr",r.error.message,true);await refreshAEpi();}
+window.stockEpi=stockEpi;
+async function setStock(id){const v=parseInt($("#setstk"+id)?.value,10);if(isNaN(v)||v<0)return;const r=await db.from("epis").update({stock:v}).eq("id",id);if(r.error)return msg("#eErr",r.error.message,true);msg("#eOk","Stock actualizado.");await refreshAEpi();}
+window.setStock=setStock;
 
 function flashInput(id){const el=document.getElementById(id);if(!el)return;el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");try{el.focus();}catch(e){}setTimeout(()=>el.classList.remove("flash"),900);}
 function msg(sel,text,isErr){const e=$(sel);if(!e)return;e.textContent=text;e.style.display="block";if(!isErr)setTimeout(()=>e.style.display="none",2600);}
