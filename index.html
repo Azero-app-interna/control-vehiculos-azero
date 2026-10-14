@@ -104,7 +104,10 @@ input.flash,select.flash{animation:flashreq .8s ease;border-color:var(--red)!imp
 const SB_URL="https://sujletbuufvaajommusm.supabase.co";
 const SB_KEY="sb_publishable_KooKb58QlNiOATewpMFv6Q_kcU-ASuY";
 const ADMIN_PASS="azero2026";
+const VAPID_PUBLIC="BK6t9YiFOFHYF3uLwAxOKxupAL3RMpE1WtkDOpx1W09TMzvxbKp93FdaoWnSsfYyB-c3wvDlBNYZihI5Z4J_-HU";
 const db=supabase.createClient(SB_URL,SB_KEY);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+function urlB64ToU8(s){const pad="=".repeat((4-s.length%4)%4);const b=(s+pad).replace(/-/g,"+").replace(/_/g,"/");const raw=atob(b);const u=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)u[i]=raw.charCodeAt(i);return u;}
 
 const $=s=>document.querySelector(s);
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -221,10 +224,36 @@ window.devolver=devolver;
 
 /* FICHAJE */
 function pFic(){
-  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Avisos de fichaje</h2><p class="hint">Recibe un aviso en este móvil a las 07:00 (fichar entrada) y a las 17:00 (fichar salida), de lunes a viernes. En iPhone, añade antes la app a la pantalla de inicio.</p><button class="rowbtn blue" id="avisoBtn" onclick="activarAvisos()">🔔 Activar avisos en este móvil</button><div id="avisoMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
   if(!zonas.length)loadBase().catch(()=>{});
-  loadMisFichajes();loadVac();
+  loadMisFichajes();loadVac();updateAvisoUI();
 }
+async function activarAvisos(){
+  const m=$("#avisoMsg");
+  try{
+    if(!("serviceWorker" in navigator)||!("PushManager" in window)){if(m)m.textContent="Este móvil o navegador no admite avisos. En iPhone, añade la app a la pantalla de inicio y vuelve a intentarlo.";return;}
+    const perm=await Notification.requestPermission();
+    if(perm!=="granted"){if(m)m.textContent="No se han permitido las notificaciones. Actívalas en los ajustes del navegador y reintenta.";return;}
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(VAPID_PUBLIC)});
+    const j=sub.toJSON();
+    const r=await db.from("push_subs").upsert({trabajador_id:worker.id,endpoint:sub.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth},{onConflict:"endpoint"});
+    if(r.error){if(m)m.textContent="No se ha podido guardar la suscripción: "+r.error.message;return;}
+    if(m)m.innerHTML='<b style="color:var(--green)">✅ Avisos activados en este móvil.</b>';
+    const b=$("#avisoBtn");if(b)b.textContent="🔔 Avisos activados";
+  }catch(e){if(m)m.textContent="No se han podido activar los avisos: "+e.message;}
+}
+window.activarAvisos=activarAvisos;
+async function updateAvisoUI(){
+  try{
+    if(!("serviceWorker" in navigator))return;
+    const reg=await navigator.serviceWorker.getRegistration();if(!reg||!reg.pushManager)return;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub){const b=$("#avisoBtn");if(b)b.textContent="🔔 Avisos activados";const m=$("#avisoMsg");if(m)m.innerHTML='<b style="color:var(--green)">✅ Avisos activados en este móvil.</b>';}
+  }catch(e){}
+}
+window.updateAvisoUI=updateAvisoUI;
 async function fichar(tipo){
   const g=$("#gps");g.style.display="block";g.textContent="📍 Obteniendo ubicación…";
   disableFic(true);
@@ -357,10 +386,12 @@ async function reportAveria(id){const nota=($("#rep"+id)?.value||"").trim();if(!
 window.reportAveria=reportAveria;
 
 /* EPIS Y ROPA (personal) */
-let epiCat=[], epiMias=[], eSub="solicitar", epiReqId=null, eGrupo=null, signId=null;
+let epiCat=[], epiMias=[], eSub="solicitar", epiReqId=null, eGrupo=null, signId=null, espOpen=false;
 const GRUPO_ORDER=["Guantes","Ropa","EPIs","Herramienta"];
 function grupoEpi(x){return x.grupo&&String(x.grupo).trim()?String(x.grupo).trim():(x.categoria==="ropa"?"Ropa":"EPIs");}
-function tallasEpi(x){return (x.tallas||"").split(",").map(s=>s.trim()).filter(Boolean);}
+function stockMap(x){try{const s=x&&x.stock_tallas;if(!s)return {};return typeof s==="string"?(JSON.parse(s)||{}):s;}catch(e){return {};}}
+function totalStock(x){const m=stockMap(x);const ks=Object.keys(m);if(ks.length)return ks.reduce((a,k)=>a+(parseInt(m[k],10)||0),0);return x.stock||0;}
+function tallasEpi(x){const t=(x.tallas||"").split(",").map(s=>s.trim()).filter(Boolean);if(t.length)return t;return Object.keys(stockMap(x));}
 function gruposOrden(a,b){const ia=GRUPO_ORDER.indexOf(a),ib=GRUPO_ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);}
 async function pEpi(){
   $("#app").innerHTML=`<div class="card"><h2>EPIs y ropa</h2><p class="hint">Solicita EPIs o ropa por grupos. Cuando te los entreguen, firma la recepción con el dedo desde «Mis EPIs».</p><div class="subtabs"><button id="es" onclick="eSet('solicitar')">Solicitar</button><button id="em" onclick="eSet('mias')">Mis EPIs</button></div><div id="ebody"><p class="empty">Cargando…</p></div><div id="eOk" class="ok"></div><div id="eErr" class="error"></div></div>`;
@@ -382,31 +413,39 @@ window.backEGrupo=backEGrupo;
 function openReq(id){epiReqId=id;renderEpi();}
 window.openReq=openReq;
 function epiEstado(e){return e==="solicitado"?'<span class="badge b-use">Solicitado</span>':e==="entregado"?'<span class="badge b-zona">Por firmar</span>':e==="firmado"?'<span class="badge b-ok">Recibido</span>':'<span class="badge b-rep">Rechazado</span>';}
-function reqForm(it){const tl=tallasEpi(it);const tallaField=tl.length?`<select id="talla${it.id}" style="flex:1;font-size:14px;padding:11px"><option value="">Elige talla…</option>${tl.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}</select>`:`<input id="talla${it.id}" placeholder="Talla (si aplica)" style="flex:1;font-size:14px;padding:11px">`;return `<div style="margin-top:9px"><div style="display:flex;gap:8px">${tallaField}<input id="cant${it.id}" type="number" min="1" value="1" style="width:72px;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="openReq(null)">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="pedirEpi(${it.id})">Enviar solicitud</button></div></div>`;}
+function reqForm(it){const tl=tallasEpi(it);const sm=stockMap(it);const tallaField=tl.length?`<select id="talla${it.id}" style="flex:1;font-size:14px;padding:11px"><option value="">Elige talla…</option>${tl.map(t=>{const q=sm[t];return `<option value="${esc(t)}">${esc(t)}${q!=null?" ("+q+" disp.)":""}</option>`;}).join("")}</select>`:`<input id="talla${it.id}" placeholder="Talla (si aplica)" style="flex:1;font-size:14px;padding:11px">`;return `<div style="margin-top:9px"><div style="display:flex;gap:8px">${tallaField}<input id="cant${it.id}" type="number" min="1" value="1" style="width:72px;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="openReq(null)">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="pedirEpi(${it.id})">Enviar solicitud</button></div></div>`;}
+function espForm(){return `<div class="row" style="background:#faf1e8;border-radius:8px;padding:12px;margin-bottom:10px"><div class="t">Solicitar algo especial (fuera de lista)</div><div class="m" style="margin-bottom:6px">Describe lo que necesitas: gafas con aumento, botas talla especial, etc.</div><textarea id="espTxt" rows="2" placeholder="¿Qué necesitas y para qué?" style="width:100%;font-size:14px;padding:11px;font-family:inherit"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="closeEsp()">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="pedirEspecial()">Enviar solicitud</button></div></div>`;}
+function openEsp(){espOpen=true;renderEpi();}
+window.openEsp=openEsp;
+function closeEsp(){espOpen=false;renderEpi();}
+window.closeEsp=closeEsp;
+async function pedirEspecial(){const txt=($("#espTxt")?.value||"").trim();if(!txt)return msg("#eErr","Escribe qué necesitas.",true);const r=await db.from("epi_solicitudes").insert({epi_id:null,trabajador_id:worker.id,cantidad:1,nota:txt,estado:"solicitado"});if(r.error)return msg("#eErr",r.error.message,true);espOpen=false;msg("#eOk","✅ Solicitud especial enviada. Administración la gestionará.");await refreshEpi();}
+window.pedirEspecial=pedirEspecial;
 function renderEpi(){
   const body=$("#ebody");if(!body)return;
   if(eSub==="solicitar"){
     const activos=epiCat.filter(x=>x.activo!==false);
-    if(!activos.length){body.innerHTML='<p class="empty">No hay EPIs ni ropa en el catálogo todavía.</p>';return;}
     if(!eGrupo){
+      const esp=espOpen?espForm():`<button class="rowbtn" style="width:100%;background:#faf1e8;color:var(--accent);margin-bottom:12px" onclick="openEsp()">✚ Solicitar algo especial (fuera de lista)</button>`;
+      if(!activos.length){body.innerHTML=esp+'<p class="empty">No hay EPIs ni ropa en el catálogo todavía.</p>';return;}
       const g={};activos.forEach(x=>{const k=grupoEpi(x);g[k]=(g[k]||0)+1;});
       const grupos=Object.keys(g).sort(gruposOrden);
-      body.innerHTML=`<p class="count">${grupos.length} grupos</p><div class="tilegrid">`+grupos.map(k=>`<button class="tile" onclick="openEGrupo('${encodeURIComponent(k)}')"><div class="tn">${esc(up(k))}</div><div class="tc">${g[k]} artículo${g[k]>1?"s":""}</div></button>`).join("")+`</div>`;
+      body.innerHTML=esp+`<p class="count">${grupos.length} grupos</p><div class="tilegrid">`+grupos.map(k=>`<button class="tile" onclick="openEGrupo('${encodeURIComponent(k)}')"><div class="tn">${esc(up(k))}</div><div class="tc">${g[k]} artículo${g[k]>1?"s":""}</div></button>`).join("")+`</div>`;
     }else{
       const items=activos.filter(x=>grupoEpi(x)===eGrupo).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-      body.innerHTML=backBar("Volver a grupos","backEGrupo()")+`<div class="crumb">${esc(up(eGrupo))}</div>`+items.map(it=>`<div class="row"><div class="t">${esc(up(it.nombre))}</div><div class="m">${it.stock>0?"Stock: "+it.stock:"Sin stock (se pedirá)"}${tallasEpi(it).length?" · tallas: "+esc(it.tallas):""}</div>${epiReqId===it.id?reqForm(it):`<button class="rowbtn blue" onclick="openReq(${it.id})">Solicitar</button>`}</div>`).join("");
+      body.innerHTML=backBar("Volver a grupos","backEGrupo()")+`<div class="crumb">${esc(up(eGrupo))}</div>`+items.map(it=>{const tl=tallasEpi(it);const tot=totalStock(it);return `<div class="row"><div class="t">${esc(up(it.nombre))}</div><div class="m">${tl.length?("Tallas: "+esc(tl.join(", "))+" · "+tot+" en stock"):(it.stock>0?"Stock: "+it.stock:"Sin stock (se pedirá)")}</div>${epiReqId===it.id?reqForm(it):`<button class="rowbtn blue" onclick="openReq(${it.id})">Solicitar</button>`}</div>`;}).join("");
     }
   }else{
     if(!epiMias.length){body.innerHTML='<p class="empty">Aún no has solicitado ningún EPI.</p>';return;}
     const nm={};epiCat.forEach(x=>nm[x.id]=x);
     body.innerHTML=epiMias.map(s=>{
-      const it=nm[s.epi_id];const nombre=it?it.nombre:("EPI #"+s.epi_id);
+      const especial=!s.epi_id;const it=nm[s.epi_id];const nombre=especial?(s.nota||"Solicitud especial"):(it?it.nombre:("EPI #"+s.epi_id));
       let extra="";
       if(s.estado==="entregado")extra=`<button class="rowbtn grn" onclick="openSign(${s.id})">✍ Firmar recepción</button>`+(signId===s.id?signPad(s.id):"");
       else if(s.estado==="firmado")extra=`<div class="d">✔ Recibido y firmado el ${fmt(s.fecha_firma)}</div>`;
       else if(s.estado==="solicitado")extra=`<div class="d">Pendiente de entrega</div>`;
-      else extra=`<div class="d">Solicitud rechazada${s.nota?" — "+esc(s.nota):""}</div>`;
-      return `<div class="row"><div class="t">${esc(up(nombre))} ${epiEstado(s.estado)}</div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Solicitado: ${fmt(s.fecha_solicitud||s.created_at)}</div>${extra}</div>`;
+      else extra=`<div class="d">Solicitud rechazada</div>`;
+      return `<div class="row"><div class="t">${esc(up(nombre))} ${especial?'<span class="badge b-zona">Especial</span> ':''}${epiEstado(s.estado)}</div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Solicitado: ${fmt(s.fecha_solicitud||s.created_at)}</div>${extra}</div>`;
     }).join("");
   }
 }
@@ -563,30 +602,43 @@ window.aESet=aESet;
 function renderAEpi(){
   const body=$("#aebody");if(!body)return;
   const cat=window._epiCat||[], sol=window._epiSol||[], map=window._epiMap||{};
+  const solNom=s=>s.epi_id?(map[s.epi_id]?map[s.epi_id].nombre:"EPI #"+s.epi_id):(s.nota||"Solicitud especial");
   if(aESub==="solicitudes"){
     const pend=sol.filter(s=>s.estado==="solicitado"), entr=sol.filter(s=>s.estado==="entregado");
     let html=`<p class="count">Pendientes de entregar (${pend.length})</p>`;
-    html+=pend.length?pend.map(s=>{const it=map[s.epi_id];return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} → ${esc(up(it?it.nombre:"EPI #"+s.epi_id))}</div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}${it?" · stock "+it.stock:""}</div><div class="d">Solicitado: ${fmt(s.fecha_solicitud||s.created_at)}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="entregarEpi(${s.id})">Marcar entregado</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="rechazarEpi(${s.id})">Rechazar</button></div></div>`;}).join(""):'<p class="empty">No hay solicitudes pendientes.</p>';
+    html+=pend.length?pend.map(s=>{const it=map[s.epi_id];const esp=!s.epi_id;return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} → ${esc(up(solNom(s)))} ${esp?'<span class="badge b-zona">Especial</span>':''}</div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}${it&&!esp?" · stock "+totalStock(it):""}</div><div class="d">Solicitado: ${fmt(s.fecha_solicitud||s.created_at)}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="entregarEpi(${s.id})">Marcar entregado</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="rechazarEpi(${s.id})">Rechazar</button></div></div>`;}).join(""):'<p class="empty">No hay solicitudes pendientes.</p>';
     html+=`<p class="count">Entregados · esperando firma (${entr.length})</p>`;
-    html+=entr.length?entr.map(s=>{const it=map[s.epi_id];return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} → ${esc(up(it?it.nombre:"EPI #"+s.epi_id))} <span class="badge b-zona">Por firmar</span></div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Entregado: ${fmt(s.fecha_entrega)}</div></div>`;}).join(""):'<p class="empty">Nada pendiente de firma.</p>';
+    html+=entr.length?entr.map(s=>{const esp=!s.epi_id;return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} → ${esc(up(solNom(s)))} ${esp?'<span class="badge b-zona">Especial</span> ':''}<span class="badge b-zona">Por firmar</span></div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Entregado: ${fmt(s.fecha_entrega)}</div></div>`;}).join(""):'<p class="empty">Nada pendiente de firma.</p>';
     body.innerHTML=html;
   }else if(aESub==="stock"){
-    let html=`<div class="row" style="background:#faf6f2;border-radius:8px;padding:12px"><div class="t">Añadir artículo</div><div style="display:flex;gap:8px;margin-top:8px"><input id="newNom" placeholder="Nombre (ej. Guantes soldar)" style="flex:2;font-size:14px;padding:11px"><input id="newStk" type="number" min="0" value="0" placeholder="Stock" style="width:80px;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px"><select id="newGru" style="flex:1;font-size:14px;padding:11px"><option value="Guantes">Guantes</option><option value="Ropa">Ropa</option><option value="EPIs" selected>EPIs</option><option value="Herramienta">Herramienta</option></select><input id="newTal" placeholder="Tallas por coma (ej. M,L,XL)" style="flex:2;font-size:14px;padding:11px"></div><button class="rowbtn blue" style="margin-top:8px" onclick="addEpi()">Añadir artículo</button></div>`;
+    let html=`<div class="row" style="background:#faf6f2;border-radius:8px;padding:12px"><div class="t">Añadir artículo</div><div style="display:flex;gap:8px;margin-top:8px"><input id="newNom" placeholder="Nombre (ej. Guantes soldar)" style="flex:2;font-size:14px;padding:11px"><input id="newStk" type="number" min="0" value="0" placeholder="Stock" style="width:80px;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px"><select id="newGru" style="flex:1;font-size:14px;padding:11px"><option value="Guantes">Guantes</option><option value="Ropa">Ropa</option><option value="EPIs" selected>EPIs</option><option value="Herramienta">Herramienta</option></select><input id="newTal" placeholder="Tallas por coma (ej. M,L,XL)" style="flex:2;font-size:14px;padding:11px"></div><button class="rowbtn blue" style="margin-top:8px" onclick="addEpi()">Añadir artículo</button><p class="hint" style="margin:8px 0 0">Si pones tallas, podrás fijar el stock de cada talla por separado.</p></div>`;
     const grupos=[...new Set(cat.map(grupoEpi))].sort(gruposOrden);
     grupos.forEach(k=>{
       const list=cat.filter(x=>grupoEpi(x)===k);
-      html+=`<p class="count">${esc(k)}</p>`+list.map(it=>`<div class="row"><div class="t">${esc(up(it.nombre))}${it.activo===false?' <span class="badge b-rep">Inactivo</span>':""}</div><div class="m">${tallasEpi(it).length?"tallas: "+esc(it.tallas)+" · ":""}stock actual: <b>${it.stock}</b></div><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="rowbtn" onclick="stockEpi(${it.id},-1)">−1</button><button class="rowbtn" onclick="stockEpi(${it.id},1)">+1</button><input id="setstk${it.id}" type="number" min="0" placeholder="fijar" style="width:72px;font-size:14px;padding:9px"><button class="rowbtn" onclick="setStock(${it.id})">Fijar</button></div><div style="display:flex;gap:8px;margin-top:6px"><input id="settal${it.id}" placeholder="Tallas por coma" value="${esc(it.tallas||"")}" style="flex:1;font-size:13px;padding:9px"><button class="rowbtn" onclick="setTallas(${it.id})">Guardar tallas</button></div></div>`).join("");
+      html+=`<p class="count">${esc(k)}</p>`+list.map(it=>{
+        const tl=tallasEpi(it);const sm=stockMap(it);let ctrl;
+        if(tl.length){
+          ctrl=`<div class="m">total en stock: <b>${totalStock(it)}</b></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">`+tl.map((t,i)=>`<div style="display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:6px;padding:4px 7px"><span style="font-size:12px;font-weight:800">${esc(t)}</span><input id="st_${it.id}_${i}" type="number" min="0" value="${sm[t]!=null?sm[t]:0}" style="width:54px;font-size:13px;padding:6px"></div>`).join("")+`</div><button class="rowbtn blue" style="margin-top:8px" onclick="setStockTallas(${it.id})">Guardar stock por talla</button><div style="display:flex;gap:8px;margin-top:6px"><input id="settal${it.id}" placeholder="Tallas por coma" value="${esc(it.tallas||tl.join(','))}" style="flex:1;font-size:13px;padding:9px"><button class="rowbtn" onclick="setTallas(${it.id})">Guardar tallas</button></div>`;
+        }else{
+          ctrl=`<div class="m">stock actual: <b>${it.stock}</b></div><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="rowbtn" onclick="stockEpi(${it.id},-1)">−1</button><button class="rowbtn" onclick="stockEpi(${it.id},1)">+1</button><input id="setstk${it.id}" type="number" min="0" placeholder="fijar" style="width:72px;font-size:14px;padding:9px"><button class="rowbtn" onclick="setStock(${it.id})">Fijar</button></div><div style="display:flex;gap:8px;margin-top:6px"><input id="settal${it.id}" placeholder="Tallas por coma (crea tallas)" style="flex:1;font-size:13px;padding:9px"><button class="rowbtn" onclick="setTallas(${it.id})">Guardar tallas</button></div>`;
+        }
+        return `<div class="row"><div class="t">${esc(up(it.nombre))}${it.activo===false?' <span class="badge b-rep">Inactivo</span>':""}</div>${ctrl}</div>`;
+      }).join("");
     });
     body.innerHTML=html;
   }else{
     const firm=sol.filter(s=>s.estado==="firmado");
-    body.innerHTML=`<p class="hint" style="margin-bottom:8px">Comprobante de recepción de EPI firmado por cada trabajador (documentación para la empresa).</p><p class="count">Firmadas (${firm.length})</p>`+(firm.length?firm.map(s=>{const it=map[s.epi_id];return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} — ${esc(up(it?it.nombre:"EPI #"+s.epi_id))} <span class="badge b-ok">Firmado</span></div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Entregado: ${fmt(s.fecha_entrega)} · Firmado: ${fmt(s.fecha_firma)}</div>${s.firma?`<img src="${s.firma}" alt="firma" style="margin-top:6px;max-width:240px;width:100%;border:1px solid var(--line);border-radius:6px;background:#fff">`:""}</div>`;}).join(""):'<p class="empty">Aún no hay entregas firmadas.</p>');
+    body.innerHTML=`<p class="hint" style="margin-bottom:8px">Comprobante de recepción de EPI firmado por cada trabajador (documentación para la empresa).</p><p class="count">Firmadas (${firm.length})</p>`+(firm.length?firm.map(s=>{const esp=!s.epi_id;return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} — ${esc(up(solNom(s)))} ${esp?'<span class="badge b-zona">Especial</span> ':''}<span class="badge b-ok">Firmado</span></div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Entregado: ${fmt(s.fecha_entrega)} · Firmado: ${fmt(s.fecha_firma)}</div>${s.firma?`<img src="${s.firma}" alt="firma" style="margin-top:6px;max-width:240px;width:100%;border:1px solid var(--line);border-radius:6px;background:#fff">`:""}</div>`;}).join(""):'<p class="empty">Aún no hay entregas firmadas.</p>');
   }
 }
 async function entregarEpi(id){
   const s=(window._epiSol||[]).find(x=>x.id===id);if(!s)return;
   const it=(window._epiMap||{})[s.epi_id];
-  if(it){const nuevo=Math.max(0,(it.stock||0)-(s.cantidad||1));await db.from("epis").update({stock:nuevo}).eq("id",it.id);}
+  if(it){
+    const m=stockMap(it);const cant=s.cantidad||1;
+    if(s.talla&&m[s.talla]!=null){m[s.talla]=Math.max(0,(parseInt(m[s.talla],10)||0)-cant);const total=Object.keys(m).reduce((a,k)=>a+(parseInt(m[k],10)||0),0);await db.from("epis").update({stock_tallas:m,stock:total}).eq("id",it.id);}
+    else{const nuevo=Math.max(0,(it.stock||0)-cant);await db.from("epis").update({stock:nuevo}).eq("id",it.id);}
+  }
   const r=await db.from("epi_solicitudes").update({estado:"entregado",fecha_entrega:new Date().toISOString()}).eq("id",id);
   if(r.error)return msg("#eErr",r.error.message,true);
   msg("#eOk","✅ Marcado como entregado. El trabajador debe firmar la recepción.");await refreshAEpi();
@@ -611,6 +663,8 @@ async function setStock(id){const v=parseInt($("#setstk"+id)?.value,10);if(isNaN
 window.setStock=setStock;
 async function setTallas(id){const v=($("#settal"+id)?.value||"").trim();const r=await db.from("epis").update({tallas:v||null}).eq("id",id);if(r.error)return msg("#eErr",r.error.message,true);msg("#eOk","Tallas actualizadas.");await refreshAEpi();}
 window.setTallas=setTallas;
+async function setStockTallas(id){const it=(window._epiMap||{})[id];if(!it)return;const tl=tallasEpi(it);const m={};tl.forEach((t,i)=>{const el=document.getElementById("st_"+id+"_"+i);const v=el?parseInt(el.value,10):0;m[t]=(isNaN(v)||v<0)?0:v;});const total=Object.keys(m).reduce((a,k)=>a+m[k],0);const r=await db.from("epis").update({stock_tallas:m,stock:total}).eq("id",id);if(r.error)return msg("#eErr",r.error.message,true);msg("#eOk","Stock por talla guardado.");await refreshAEpi();}
+window.setStockTallas=setStockTallas;
 
 function flashInput(id){const el=document.getElementById(id);if(!el)return;el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");try{el.focus();}catch(e){}setTimeout(()=>el.classList.remove("flash"),900);}
 function msg(sel,text,isErr){const e=$(sel);if(!e)return;e.textContent=text;e.style.display="block";if(!isErr)setTimeout(()=>e.style.display="none",2600);}
