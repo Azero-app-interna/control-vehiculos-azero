@@ -502,7 +502,7 @@ function rVeh(){
 window.rVeh=rVeh;
 let aFicSub="fichajes";
 async function aFic(){
-  $("#app").innerHTML=`<div class="card"><h2>Fichajes y vacaciones</h2><div class="subtabs"><button id="af1" onclick="aFicSet('fichajes')">Fichajes</button><button id="af2" onclick="aFicSet('vac')">Vacaciones</button></div><div id="afwrap"><p class="empty">Cargando…</p></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Fichajes y vacaciones</h2><div class="subtabs"><button id="af1" onclick="aFicSet('fichajes')">Fichajes</button><button id="af2" onclick="aFicSet('vac')">Vacaciones</button><button id="af3" onclick="aFicSet('horarios')">Horarios</button></div><div id="afwrap"><p class="empty">Cargando…</p></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div>`;
   const [f,v]=await Promise.all([
     db.from("fichajes").select("trabajador_id,tipo,lat,lng,precision_m,lugar,created_at").order("created_at",{ascending:false}).limit(500),
     db.from("vacaciones").select("*").order("created_at",{ascending:false}).limit(500)
@@ -510,8 +510,26 @@ async function aFic(){
   window._fics=f.error?[]:f.data; window._vac=v.error?[]:v.data;
   aFicSet("fichajes");
 }
-function aFicSet(s){aFicSub=s;["af1","af2"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===(s==="fichajes"?"af1":"af2"));});if(s==="fichajes")renderAFic();else renderAVac();}
+function aFicSet(s){aFicSub=s;const m={fichajes:"af1",vac:"af2",horarios:"af3"};["af1","af2","af3"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===m[s]);});if(s==="fichajes")renderAFic();else if(s==="vac")renderAVac();else renderAHorarios();}
 window.aFicSet=aFicSet;
+async function renderAHorarios(){
+  const wrap=$("#afwrap");if(!wrap)return;
+  wrap.innerHTML='<p class="empty">Cargando…</p>';
+  const {data,error}=await db.from("conductores").select("id,nombre,hora_entrada,hora_salida").order("nombre");
+  if(error){wrap.innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}
+  const hhmm=t=>t?String(t).slice(0,5):"";
+  wrap.innerHTML='<p class="hint">Hora de aviso de cada trabajador (lunes a viernes). Si lo dejas vacío, se usa 07:00 / 17:00. El aviso insiste cada 5 min durante media hora hasta que fiche.</p>'+data.map(c=>`<div class="row"><div class="t">${esc(c.nombre)}</div><div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap"><span style="font-size:11px;font-weight:800;color:#6b6862">ENTRADA</span><input type="time" id="he_${c.id}" value="${hhmm(c.hora_entrada)}" style="width:118px;padding:9px"><span style="font-size:11px;font-weight:800;color:#6b6862">SALIDA</span><input type="time" id="hs_${c.id}" value="${hhmm(c.hora_salida)}" style="width:118px;padding:9px"><button class="rowbtn blue" onclick="guardarHorario(${c.id})">Guardar</button></div></div>`).join("");
+}
+window.renderAHorarios=renderAHorarios;
+async function guardarHorario(id){
+  const he=($("#he_"+id)?.value||"").trim();
+  const hs=($("#hs_"+id)?.value||"").trim();
+  const r=await db.from("conductores").update({hora_entrada:he||null,hora_salida:hs||null}).eq("id",id);
+  if(r.error)return msg("#vacErr",r.error.message,true);
+  msg("#vacOk","✅ Horario guardado.");
+}
+window.guardarHorario=guardarHorario;
+async function aVac(){}
 function renderAFic(){const wrap=$("#afwrap");if(!wrap)return;wrap.innerHTML=`<input id="affil" placeholder="Buscar trabajador, tipo o lugar" oninput="rFic()"><div id="afbody"><p class="empty">Cargando…</p></div>`;rFic();}
 function rFic(){
   const q=(document.getElementById("affil")?.value||"").toLowerCase();
