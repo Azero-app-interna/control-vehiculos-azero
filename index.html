@@ -108,6 +108,7 @@ input.flash,select.flash{animation:flashreq .8s ease;border-color:var(--red)!imp
 const SB_URL="https://sujletbuufvaajommusm.supabase.co";
 const SB_KEY="sb_publishable_KooKb58QlNiOATewpMFv6Q_kcU-ASuY";
 const ADMIN_PASS="azero2026";
+const ADMIN_PASS_LIMIT="Azero2026limit";
 const VAPID_PUBLIC="BK6t9YiFOFHYF3uLwAxOKxupAL3RMpE1WtkDOpx1W09TMzvxbKp93FdaoWnSsfYyB-c3wvDlBNYZihI5Z4J_-HU";
 const db=supabase.createClient(SB_URL,SB_KEY);
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
@@ -121,7 +122,7 @@ function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
 
-let worker=null, vehiculos=[], condMap={}, vehMap={}, obras=[], zonas=[];
+let worker=null, vehiculos=[], condMap={}, vehMap={}, obras=[], zonas=[], adminRol="full";
 const params=new URLSearchParams(location.search);
 const wmHTML='<div class="wm">AZERO</div><div class="wms">Control interno</div>';
 
@@ -148,14 +149,14 @@ function renderCenter(title,text,adminLink){
 }
 function startAdmin(){
   worker=null;
-  if(lsGet("azero_admin")==="1")return renderAdmin();
+  if(lsGet("azero_admin")==="1"){adminRol=lsGet("azero_rol")||"full";return renderAdmin();}
   $("#tabs").innerHTML="";$("#who").innerHTML="";
   $("#app").innerHTML=`<div class="center">${wmHTML}<h1>Administrador</h1><p>Introduce la contraseña para ver los registros.</p><input id="pass" type="password" placeholder="Contraseña" autocomplete="off"><button class="primary" onclick="tryAdmin()">Entrar</button><div id="passErr" class="error"></div></div>`;
   const i=$("#pass");i.addEventListener("keydown",e=>{if(e.key==="Enter")tryAdmin();});i.focus();
 }
-function tryAdmin(){if($("#pass").value===ADMIN_PASS){lsSet("azero_admin","1");renderAdmin();}else{const e=$("#passErr");e.textContent="Contraseña incorrecta.";e.style.display="block";}}
+function tryAdmin(){const p=$("#pass").value;if(p===ADMIN_PASS){adminRol="full";lsSet("azero_admin","1");lsSet("azero_rol","full");renderAdmin();}else if(p===ADMIN_PASS_LIMIT){adminRol="herr";lsSet("azero_admin","1");lsSet("azero_rol","herr");renderAdmin();}else{const e=$("#passErr");e.textContent="Contraseña incorrecta.";e.style.display="block";}}
 window.tryAdmin=tryAdmin;
-function adminLogout(){lsDel("azero_admin");location.search="";}
+function adminLogout(){lsDel("azero_admin");lsDel("azero_rol");location.search="";}
 window.adminLogout=adminLogout;
 
 async function loadBase(){
@@ -480,13 +481,14 @@ window.pedirEpi=pedirEpi;
 
 /* ADMIN */
 async function renderAdmin(){
-  $("#who").innerHTML=`<b>Administrador</b><button class="linkbtn" onclick="adminLogout()">Cerrar sesión</button>`;
-  $("#tabs").innerHTML=`<button data-t="veh" onclick="aGo('veh')">Vehíc.</button><button data-t="fic" onclick="aGo('fic')">Fichaje</button><button data-t="herr" onclick="aGo('herr')">Herram.</button><button data-t="epi" onclick="aGo('epi')">EPIs</button>`;
+  const lim=adminRol==="herr";
+  $("#who").innerHTML=`<b>Administrador${lim?' · Herram. y EPIs':''}</b><button class="linkbtn" onclick="adminLogout()">Cerrar sesión</button>`;
+  $("#tabs").innerHTML=(lim?'':`<button data-t="veh" onclick="aGo('veh')">Vehíc.</button><button data-t="fic" onclick="aGo('fic')">Fichaje</button>`)+`<button data-t="herr" onclick="aGo('herr')">Herram.</button><button data-t="epi" onclick="aGo('epi')">EPIs</button>`;
   $("#app").innerHTML='<div class="card"><p class="empty">Cargando…</p></div>';
   try{await loadBase();}catch(e){}
-  aGo("veh");
+  aGo(lim?"herr":"veh");
 }
-function aGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();if(t==="epi")aEpi();}
+function aGo(t){if(adminRol==="herr"&&(t==="veh"||t==="fic"))t="herr";[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();if(t==="epi")aEpi();}
 window.aGo=aGo;
 async function aVeh(){
   $("#app").innerHTML=`<div class="card"><h2>Historial de vehículos</h2><p class="hint">Quién ha cogido y devuelto cada vehículo.</p><input id="afil" placeholder="Buscar conductor, vehículo o matrícula" oninput="rVeh()"><div id="avbody"><p class="empty">Cargando…</p></div></div>`;
@@ -562,13 +564,13 @@ function setAdmRepair(id){admRepairId=id;rInv();}
 window.setAdmRepair=setAdmRepair;
 function admRepairForm(id){return `<div style="margin-top:9px"><input id="arep${id}" placeholder="Motivo del fallo (obligatorio)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setAdmRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="admAveria(${id})">Enviar a reparación</button></div></div>`;}
 async function aHerr(){
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Almacén</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
   const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("herramienta_id,trabajador_id,tipo,obra,nota,created_at").order("created_at",{ascending:false}).limit(200)]);
   window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);aHSet("almacen");
   const m=mov.error?[]:mov.data;
   $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||"herr #"+x.herramienta_id))} — ${movLabel(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}${x.nota?" · "+esc(x.nota):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
 }
-function aHSet(s){aHSub=s;admRepairId=null;const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib"};["ia","io","ir","ib"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
+function aHSet(s){aHSub=s;admRepairId=null;invReset();const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib"};["ia","io","ir","ib"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
 window.aHSet=aHSet;
 function movLabel(t){return t==="coger"?"Cogida":t==="devolver"?"Devuelta":t==="averia"?"Enviada a reparación":t==="reparada"?"Reparada":t==="baja"?"Dada de baja":esc(t);}
 async function refreshInv(){const inv=await db.from("herramientas").select("*").order("nombre");window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);rInv();}
@@ -579,8 +581,11 @@ function rInv(){
   const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")).toLowerCase().includes(q));
   let list=(window._inv||[]).filter(match);
   if(aHSub==="almacen"){
-    list=list.filter(h=>h.estado==="disponible");
-    body.innerHTML=`<p class="count">${list.length} en almacén</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.stock>1?" · stock "+h.stock:""}</div>${admRepairId===h.id?admRepairForm(h.id):`<button class="rowbtn" style="background:var(--red);color:#fff" onclick="setAdmRepair(${h.id})">Enviar a reparación</button>`}</div>`).join(""):'<p class="empty">Almacén vacío.</p>');
+    if(q){
+      body.innerHTML=`<p class="count">${list.length} resultado${list.length!==1?"s":""}</p>`+(list.length?list.map(invUnitCard).join(""):'<p class="empty">Sin resultados.</p>');
+    }else{
+      renderInv(body);
+    }
   }else if(aHSub==="obra"){
     list=list.filter(h=>h.estado==="en_uso");
     if(!list.length){body.innerHTML='<p class="empty">Ninguna herramienta en obra.</p>';return;}
@@ -603,6 +608,82 @@ async function admDevolver(id){const r=await db.from("herramientas").update({est
 window.admDevolver=admDevolver;
 async function admAveria(id){const nota=($("#arep"+id)?.value||"").trim();if(!nota){flashInput("arep"+id);return msg("#hErr","Explica el motivo antes de enviar a reparación.",true);}const r=await db.from("herramientas").update({estado:"reparacion",responsable_id:null,obra_actual:null,nota_reparacion:nota}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,tipo:"averia",nota});admRepairId=null;msg("#hOk","🔧 Enviada a reparación.");await refreshInv();}
 window.admAveria=admAveria;
+
+/* HERRAMIENTAS — inventario agrupado y editable (admin) */
+let invFam=null, invTipo=null, invEditId=null, invAddOpen=false, invDelId=null;
+function invReset(){invFam=null;invTipo=null;invEditId=null;invAddOpen=false;invDelId=null;}
+function openInvFam(enc){invFam=decodeURIComponent(enc);invTipo=null;invEditId=null;invDelId=null;rInv();}
+window.openInvFam=openInvFam;
+function openInvTipo(enc){invTipo=decodeURIComponent(enc);invEditId=null;invDelId=null;rInv();}
+window.openInvTipo=openInvTipo;
+function invBackFam(){invFam=null;invTipo=null;invEditId=null;invDelId=null;rInv();}
+window.invBackFam=invBackFam;
+function invBackTipo(){invTipo=null;invEditId=null;invDelId=null;rInv();}
+window.invBackTipo=invBackTipo;
+function toggleInvAdd(){invAddOpen=!invAddOpen;rInv();}
+window.toggleInvAdd=toggleInvAdd;
+function setInvEdit(id){invEditId=id;invDelId=null;rInv();}
+window.setInvEdit=setInvEdit;
+function setInvDel(id){invDelId=id;rInv();}
+window.setInvDel=setInvDel;
+function famOptions(sel){const fams=[...new Set((window._inv||[]).map(familiaDe))].sort();return fams.map(f=>`<option value="${esc(f)}"${f===sel?" selected":""}>${esc(f)}</option>`).join("");}
+function invFamSelChange(){const s=$("#iaFamSel"),n=$("#iaFamNew");if(n)n.style.display=(s&&s.value==="__new")?"block":"none";}
+window.invFamSelChange=invFamSelChange;
+function invAddForm(){
+  const hayFam=[...new Set((window._inv||[]).map(familiaDe))].length>0;
+  return `<div class="row" style="background:#faf6f2;border-radius:8px;padding:12px;margin-bottom:12px"><div class="t">Añadir herramienta</div><div style="margin-top:8px"><input id="iaNom" placeholder="Nombre / tipo (ej. Taladro percutor, Andamio)" style="width:100%;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><select id="iaFamSel" onchange="invFamSelChange()" style="flex:1;min-width:150px;font-size:14px;padding:11px">${famOptions(invFam||"")}<option value="__new">➕ Nueva familia…</option></select><input id="iaFamNew" placeholder="Nueva familia (ej. Andamios)" style="flex:1;min-width:150px;font-size:14px;padding:11px;display:${hayFam?"none":"block"}"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input id="iaCod" placeholder="Código / QR (opcional)" style="flex:1;min-width:120px;font-size:14px;padding:11px"><input id="iaMar" placeholder="Marca (opcional)" style="flex:1;min-width:120px;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input id="iaSerie" placeholder="Nº de serie (opcional)" style="flex:2;min-width:120px;font-size:14px;padding:11px"><input id="iaCant" type="number" min="1" value="1" title="Nº de unidades" style="width:90px;font-size:14px;padding:11px"></div><p class="hint" style="margin:8px 0 0">Nº de unidades: crea varias de golpe. Con código, se numeran (código-1, código-2…).</p><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="toggleInvAdd()">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="addHerr()">Guardar</button></div></div>`;
+}
+async function addHerr(){
+  const nom=($("#iaNom")?.value||"").trim();if(!nom){flashInput("iaNom");return msg("#hErr","Pon el nombre de la herramienta.",true);}
+  let fam=($("#iaFamSel")?.value||"");if(fam==="__new"||!fam)fam=($("#iaFamNew")?.value||"").trim();
+  const cod=($("#iaCod")?.value||"").trim(),mar=($("#iaMar")?.value||"").trim(),serie=($("#iaSerie")?.value||"").trim();
+  const cant=Math.max(1,parseInt($("#iaCant")?.value||"1",10)||1);
+  const rows=[];for(let i=0;i<cant;i++){rows.push({nombre:nom,categoria:fam||null,codigo:(cant>1&&cod)?(cod+"-"+(i+1)):(cod||null),marca:mar||null,num_serie:serie||null,estado:"disponible"});}
+  const r=await db.from("herramientas").insert(rows);if(r.error)return msg("#hErr",r.error.message,true);
+  invAddOpen=false;if(fam)invFam=fam;msg("#hOk","✅ "+cant+" unidad"+(cant>1?"es":"")+" añadida"+(cant>1?"s":"")+".");await refreshInv();
+}
+window.addHerr=addHerr;
+function invEditForm(h){
+  return `<div style="margin-top:9px;border-top:1px dashed var(--line);padding-top:9px"><input id="ieNom${h.id}" value="${esc(h.nombre||"")}" placeholder="Nombre / tipo" style="width:100%;font-size:14px;padding:10px"><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><select id="ieFam${h.id}" style="flex:1;min-width:130px;font-size:14px;padding:10px">${famOptions(familiaDe(h))}</select><select id="ieEst${h.id}" style="flex:1;min-width:130px;font-size:14px;padding:10px">${["disponible","en_uso","reparacion","baja"].map(e=>`<option value="${e}"${h.estado===e?" selected":""}>${e}</option>`).join("")}</select></div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><input id="ieCod${h.id}" value="${esc(h.codigo||"")}" placeholder="Código" style="flex:1;min-width:110px;font-size:14px;padding:10px"><input id="ieMar${h.id}" value="${esc(h.marca||"")}" placeholder="Marca" style="flex:1;min-width:110px;font-size:14px;padding:10px"></div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><input id="ieSerie${h.id}" value="${esc(h.num_serie||"")}" placeholder="Nº serie" style="flex:1;min-width:110px;font-size:14px;padding:10px"><input id="ieFoto${h.id}" value="${esc(h.foto_url||"")}" placeholder="URL foto (opcional)" style="flex:2;min-width:110px;font-size:14px;padding:10px"></div><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setInvEdit(null)">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="saveHerr(${h.id})">Guardar cambios</button></div></div>`;
+}
+async function saveHerr(id){
+  const g=s=>($("#"+s+id)?.value||"").trim();
+  const nombre=g("ieNom");if(!nombre){flashInput("ieNom"+id);return msg("#hErr","El nombre no puede quedar vacío.",true);}
+  const upd={nombre:nombre,categoria:g("ieFam")||null,estado:g("ieEst")||"disponible",codigo:g("ieCod")||null,marca:g("ieMar")||null,num_serie:g("ieSerie")||null,foto_url:g("ieFoto")||null};
+  const r=await db.from("herramientas").update(upd).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);
+  invEditId=null;msg("#hOk","✅ Cambios guardados.");await refreshInv();
+}
+window.saveHerr=saveHerr;
+async function delHerr(id){const r=await db.from("herramientas").delete().eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);invDelId=null;msg("#hOk","Herramienta borrada.");await refreshInv();}
+window.delHerr=delHerr;
+function invUnitCard(h){
+  const meta=`<div class="m">${esc(h.codigo||"sin código")}${h.marca?" · "+esc(h.marca):""}${h.num_serie?" · nº "+esc(h.num_serie):""}</div>`;
+  const con=h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:(h.estado==="reparacion"&&h.nota_reparacion?`<div class="d">⚠️ ${esc(h.nota_reparacion)}</div>`:"");
+  let foot;
+  if(invEditId===h.id)foot=invEditForm(h);
+  else if(invDelId===h.id)foot=`<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><span class="d" style="flex:1">¿Borrar para siempre?</span><button class="rowbtn" style="flex:1" onclick="setInvDel(null)">No</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="delHerr(${h.id})">Sí, borrar</button></div>`;
+  else foot=`<div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setInvEdit(${h.id})">✎ Editar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="setInvDel(${h.id})">Borrar</button></div>`;
+  return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div>${meta}${con}${foot}</div>`;
+}
+function renderInv(body){
+  const all=window._inv||[];
+  const addBtn=`<button class="rowbtn blue" style="width:100%;margin-bottom:10px" onclick="toggleInvAdd()">${invAddOpen?"✕ Cerrar":"➕ Añadir herramienta"}</button>`;
+  const addForm=invAddOpen?invAddForm():"";
+  if(!invFam){
+    const fam={};all.forEach(h=>{const f=familiaDe(h);fam[f]=(fam[f]||0)+1;});
+    const fams=Object.keys(fam).sort();
+    const tiles=fams.length?`<div class="tilegrid">`+fams.map(f=>`<button class="tile" onclick="openInvFam('${encodeURIComponent(f)}')"><div class="tn">${esc(up(f))}</div><div class="tc">${fam[f]} ud${fam[f]>1?"s":""}</div></button>`).join("")+`</div>`:'<p class="empty">No hay herramientas todavía. Añade la primera.</p>';
+    body.innerHTML=addBtn+addForm+`<p class="count">${fams.length} familia${fams.length!==1?"s":""} · ${all.length} unidades</p>`+tiles;
+  }else if(!invTipo){
+    const inFam=all.filter(h=>familiaDe(h)===invFam);
+    const tp={};inFam.forEach(h=>{tp[h.nombre]=(tp[h.nombre]||0)+1;});
+    const tipos=Object.keys(tp).sort();
+    body.innerHTML=addBtn+addForm+backBar("Volver a familias","invBackFam()")+`<div class="crumb">${esc(up(invFam))} · ${inFam.length} unidad${inFam.length!==1?"es":""}</div>`+(tipos.length?`<div class="tilegrid">`+tipos.map(n=>`<button class="tile" onclick="openInvTipo('${encodeURIComponent(n)}')"><div class="tn">${esc(up(n))}</div><div class="tc">${tp[n]} ud${tp[n]>1?"s":""}</div></button>`).join("")+`</div>`:'<p class="empty">Sin unidades en esta familia.</p>');
+  }else{
+    const units=all.filter(h=>familiaDe(h)===invFam&&h.nombre===invTipo).sort((a,b)=>(a.codigo||"").localeCompare(b.codigo||""));
+    body.innerHTML=addBtn+addForm+backBar("Volver a "+invFam,"invBackTipo()")+`<div class="crumb">${esc(up(invTipo))} · ${units.length} unidad${units.length!==1?"es":""}</div>`+(units.length?units.map(invUnitCard).join(""):'<p class="empty">Sin unidades.</p>');
+  }
+}
 
 /* EPIS Y ROPA (admin) */
 let aESub="solicitudes";
