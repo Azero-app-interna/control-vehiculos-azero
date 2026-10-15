@@ -11,6 +11,8 @@ self.addEventListener('push', e => {
     tag: d.tag || 'fichaje',
     renotify: true,
     requireInteraction: true,
+    silent: false,
+    vibrate: [400, 150, 400, 150, 400, 150, 400],
     data: { url: d.url || './' }
   }));
 });
