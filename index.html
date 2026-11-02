@@ -45,6 +45,9 @@ button:disabled{opacity:.5}
 .subtabs{display:flex;gap:8px;margin-bottom:8px}
 .subtabs button{flex:1;min-width:0;border:0;border-radius:8px;padding:11px 4px;font-size:12px;font-weight:800;background:#f0eeeb;color:#6b6862;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
 .subtabs button.active{background:var(--brand);color:#fff}
+.tabs button,.subtabs button{position:relative;overflow:visible}
+.tbadge{position:absolute;top:-8px;right:-6px;background:#e5322d;color:#fff;border-radius:11px;min-width:20px;height:20px;padding:0 6px;font-size:11px;font-weight:800;line-height:20px;text-align:center;letter-spacing:0;box-shadow:0 0 0 2px #fff;animation:tbpop .35s ease-out;z-index:2}
+@keyframes tbpop{0%{transform:scale(.3)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
 .row{padding:14px 2px;border-bottom:2px solid #f0eeeb}
 .row:last-child{border-bottom:0}
 .row .t{font-weight:800;letter-spacing:.3px}
@@ -206,7 +209,7 @@ function startPersonal(){
   $("#tabs").innerHTML=`<button data-t="fic" onclick="pGo('fic')">Fichaje</button><button data-t="veh" onclick="pGo('veh')">Vehíc.</button><button data-t="herr" onclick="pGo('herr')">Herram.</button><button data-t="epi" onclick="pGo('epi')">EPIs</button>`;
   pGo("fic");
 }
-function pGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")pVeh();if(t==="fic")pFic();if(t==="herr")pHerr();if(t==="epi")pEpi();}
+function pGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")pVeh();if(t==="fic")pFic();if(t==="herr")pHerr();if(t==="epi")pEpi();refreshBadges();}
 window.pGo=pGo;
 
 let vSub="coger";
@@ -357,7 +360,7 @@ async function pHerr(){
    :`<button id="ha" onclick="hSet('almacen')">Inventario</button><button id="hms" onclick="hSet('missol')">Mis solicitudes</button>`;
   const obraSel=g?`<div id="hobrawrap" style="display:none"><label>⚠ Obra obligatoria — elígela antes de coger</label><select id="obra"><option value="">— Selecciona obra —</option><option value="Taller">Taller</option>${obraOpts()}</select></div>`:"";
   $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs">${subtabs}</div>${obraSel}<input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
-  await refreshHerr();hSet("almacen");
+  await refreshHerr();hSet(g&&(window._hsol||[]).some(s=>s.estado==="pendiente")?"solicitudes":"almacen");
 }
 function hSet(s){hSub=s;repairId=null;hDetail=null;hFam=null;hReqTipo=null;const map={almacen:"ha",obra:"ho",reparacion:"hr",solicitudes:"hsol",missol:"hms"};["ha","ho","hr","hsol","hms"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
 window.hSet=hSet;
@@ -434,7 +437,7 @@ async function asignarSol(id){
 window.asignarSol=asignarSol;
 async function rechazarSol(id){const r=await db.from("herramienta_solicitudes").update({estado:"rechazada",resuelta_at:new Date().toISOString()}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);msg("#hOk","Solicitud rechazada.");await refreshHerr();}
 window.rechazarSol=rechazarSol;
-function renderHerr(){
+function renderHerr(){applyBadges();
   const q=($("#hfil")?.value||"").toLowerCase();
   const g=esGestor();
   const obw=$("#hobrawrap");if(obw)obw.style.display=(g&&hSub==="almacen"&&(q||(hFam&&hDetail)))?"block":"none";
@@ -519,7 +522,7 @@ function closeEsp(){espOpen=false;renderEpi();}
 window.closeEsp=closeEsp;
 async function pedirEspecial(){const txt=($("#espTxt")?.value||"").trim();if(!txt)return msg("#eErr","Escribe qué necesitas.",true);const r=await db.from("epi_solicitudes").insert({epi_id:null,trabajador_id:worker.id,cantidad:1,nota:txt,estado:"solicitado"});if(r.error)return msg("#eErr",r.error.message,true);espOpen=false;msg("#eOk","✅ Solicitud especial enviada. Administración la gestionará.");await refreshEpi();}
 window.pedirEspecial=pedirEspecial;
-function renderEpi(){
+function renderEpi(){applyBadges();
   const body=$("#ebody");if(!body)return;
   if(eSub==="solicitar"){
     const activos=epiCat.filter(x=>x.activo!==false);
@@ -581,7 +584,7 @@ async function renderAdmin(){
   try{await loadBase();}catch(e){}
   aGo(lim?"herr":"veh");
 }
-function aGo(t){if(adminRol==="herr"&&(t==="veh"||t==="fic"))t="herr";[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();if(t==="epi")aEpi();}
+function aGo(t){if(adminRol==="herr"&&(t==="veh"||t==="fic"))t="herr";[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();if(t==="epi")aEpi();refreshBadges();}
 window.aGo=aGo;
 async function aVeh(){
   $("#app").innerHTML=`<div class="card"><h2>Historial de vehículos</h2><p class="hint">Quién ha cogido y devuelto cada vehículo.</p><input id="afil" placeholder="Buscar conductor, vehículo o matrícula" oninput="rVeh()"><div id="avbody"><p class="empty">Cargando…</p></div></div>`;
@@ -657,19 +660,42 @@ function setAdmRepair(id){admRepairId=id;rInv();}
 window.setAdmRepair=setAdmRepair;
 function admRepairForm(id){return `<div style="margin-top:9px"><input id="arep${id}" placeholder="Motivo del fallo (obligatorio)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setAdmRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="admAveria(${id})">Enviar a reparación</button></div></div>`;}
 async function aHerr(){
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
   const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("herramienta_id,trabajador_id,tipo,obra,nota,created_at").order("created_at",{ascending:false}).limit(200)]);
-  window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);aHSet("almacen");
+  window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);await loadASol();aHSet(_bc.herr>0?"sol":"almacen");
   const m=mov.error?[]:mov.data;
   $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||"herr #"+x.herramienta_id))} — ${movLabel(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}${x.nota?" · "+esc(x.nota):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
 }
-function aHSet(s){aHSub=s;admRepairId=null;invReset();const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib"};["ia","io","ir","ib"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
+function aHSet(s){aHSub=s;admRepairId=null;invReset();const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib",sol:"is"};["ia","io","ir","ib","is"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
 window.aHSet=aHSet;
 function movLabel(t){return t==="coger"?"Cogida":t==="devolver"?"Devuelta":t==="averia"?"Enviada a reparación":t==="reparada"?"Reparada":t==="baja"?"Dada de baja":esc(t);}
 async function refreshInv(){const inv=await db.from("herramientas").select("*").order("nombre");window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);rInv();}
 window.refreshInv=refreshInv;
-function rInv(){
+async function loadASol(){const s=await db.from("herramienta_solicitudes").select("*").order("created_at",{ascending:false}).limit(200);window._asol=s.error?[]:s.data;}
+function renderASol(body){
+  const sol=window._asol||[],inv=window._inv||[];
+  const pend=sol.filter(s=>s.estado==="pendiente"),resto=sol.filter(s=>s.estado!=="pendiente").slice(0,30);
+  let html=`<p class="count">Pendientes de asignar (${pend.length})</p>`;
+  html+=pend.length?pend.map(s=>{const avail=inv.filter(h=>h.nombre===s.tipo_nombre&&h.estado==="disponible").length;return `<div class="row"><div class="t">${esc(up(s.tipo_nombre||"—"))}</div><div class="m">Obra: ${esc(s.obra||"—")} · Pide: ${esc(condMap[s.trabajador_id]||"—")}${s.nota?" · "+esc(s.nota):""}</div><div class="d">Disponibles: ${avail} · ${fmt(s.created_at)}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" ${avail?"":"disabled"} onclick="asignarASol(${s.id})">Asignar a obra</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="rechazarASol(${s.id})">Rechazar</button></div></div>`;}).join(""):'<p class="empty">No hay solicitudes pendientes.</p>';
+  if(resto.length)html+=`<p class="count">Histórico</p>`+resto.map(s=>`<div class="row"><div class="t">${esc(up(s.tipo_nombre||"—"))} ${solEstado(s.estado)}</div><div class="m">Obra: ${esc(s.obra||"—")} · ${esc(condMap[s.trabajador_id]||"—")}</div></div>`).join("");
+  body.innerHTML=html;
+}
+async function asignarASol(id){
+  const sol=(window._asol||[]).find(x=>x.id===id);if(!sol)return;
+  const unit=(window._inv||[]).find(h=>h.nombre===sol.tipo_nombre&&h.estado==="disponible");
+  if(!unit)return msg("#hErr","No hay unidades disponibles de "+sol.tipo_nombre+".",true);
+  const r1=await db.from("herramientas").update({estado:"en_uso",obra_actual:sol.obra,responsable_id:sol.trabajador_id}).eq("id",unit.id);
+  if(r1.error)return msg("#hErr",r1.error.message,true);
+  await db.from("herramientas_mov").insert({herramienta_id:unit.id,trabajador_id:sol.trabajador_id,tipo:"coger",obra:sol.obra});
+  await db.from("herramienta_solicitudes").update({estado:"asignada",resuelta_at:new Date().toISOString(),herramienta_id:unit.id}).eq("id",id);
+  await loadASol();msg("#hOk","✅ Asignada a "+sol.obra+".");await refreshInv();
+}
+window.asignarASol=asignarASol;
+async function rechazarASol(id){const r=await db.from("herramienta_solicitudes").update({estado:"rechazada",resuelta_at:new Date().toISOString()}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);await loadASol();msg("#hOk","Solicitud rechazada.");rInv();}
+window.rechazarASol=rechazarASol;
+function rInv(){applyBadges();
   const body=$("#ahbody");if(!body)return;
+  if(aHSub==="sol"){renderASol(body);return;}
   const q=(document.getElementById("ahfil")?.value||"").toLowerCase();
   const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")).toLowerCase().includes(q));
   let list=(window._inv||[]).filter(match);
@@ -795,7 +821,7 @@ async function refreshAEpi(){
 }
 function aESet(s){aESub=s;["eas","eastk","eadoc"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===(s==="solicitudes"?"eas":s==="stock"?"eastk":"eadoc"));});renderAEpi();}
 window.aESet=aESet;
-function renderAEpi(){
+function renderAEpi(){applyBadges();
   const body=$("#aebody");if(!body)return;
   const cat=window._epiCat||[], sol=window._epiSol||[], map=window._epiMap||{};
   const solNom=s=>s.epi_id?(map[s.epi_id]?map[s.epi_id].nombre:"EPI #"+s.epi_id):(s.nota||"Solicitud especial");
@@ -863,7 +889,38 @@ async function setStockTallas(id){const it=(window._epiMap||{})[id];if(!it)retur
 window.setStockTallas=setStockTallas;
 
 function flashInput(id){const el=document.getElementById(id);if(!el)return;el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");try{el.focus();}catch(e){}setTimeout(()=>el.classList.remove("flash"),900);}
-function msg(sel,text,isErr){const e=$(sel);if(!e)return;e.textContent=text;e.style.display="block";if(!isErr)setTimeout(()=>e.style.display="none",2600);}
+function msg(sel,text,isErr){const e=$(sel);if(!e)return;e.textContent=text;e.style.display="block";if(!isErr){setTimeout(()=>e.style.display="none",2600);refreshBadges();}}
+
+/* GLOBOS DE NOTIFICACION (solicitudes pendientes) */
+let _bc={herr:0,epi:0};
+function setBtnBadge(b,n){if(!b)return;let s=b.querySelector(".tbadge");if(n>0){if(!s){s=document.createElement("span");s.className="tbadge";b.appendChild(s);}s.textContent=n>99?"99+":String(n);}else if(s)s.remove();}
+function applyBadges(){
+  setBtnBadge(document.querySelector('#tabs button[data-t="herr"]'),_bc.herr);
+  setBtnBadge(document.querySelector('#tabs button[data-t="epi"]'),_bc.epi);
+  setBtnBadge($("#hsol"),_bc.herr);setBtnBadge($("#is"),_bc.herr);
+  setBtnBadge($("#eas"),worker?0:_bc.epi);setBtnBadge($("#em"),worker?_bc.epi:0);
+}
+async function refreshBadges(){
+  if(!document.querySelector("#tabs button"))return;
+  try{
+    const cnt=async q=>{const r=await q;return r.error?0:(r.count||0);};
+    const H=()=>db.from("herramienta_solicitudes").select("id",{count:"exact",head:true}).eq("estado","pendiente");
+    if(!worker){
+      const [h,e]=await Promise.all([cnt(H()),cnt(db.from("epi_solicitudes").select("id",{count:"exact",head:true}).eq("estado","solicitado"))]);
+      _bc={herr:h,epi:e};
+    }else{
+      const h=worker.puede_herr?await cnt(H()):0;
+      const e=await cnt(db.from("epi_solicitudes").select("id",{count:"exact",head:true}).eq("trabajador_id",worker.id).eq("estado","entregado"));
+      _bc={herr:h,epi:e};
+    }
+    applyBadges();
+    const tot=_bc.herr+_bc.epi;
+    if("setAppBadge" in navigator){(tot?navigator.setAppBadge(tot):navigator.clearAppBadge()).catch(()=>{});}
+  }catch(e){}
+}
+window.refreshBadges=refreshBadges;
+setInterval(()=>{if(document.visibilityState==="visible")refreshBadges();},60000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshBadges();});
 
 boot().catch(e=>renderCenter("Error",e.message,true));
 </script>
