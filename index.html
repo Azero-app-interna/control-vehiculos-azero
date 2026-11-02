@@ -128,7 +128,31 @@ const wmHTML='<div class="wm">AZERO</div><div class="wms">Control interno</div>'
 
 function distM(a,b,c,d){const R=6371000,r=Math.PI/180;const dLa=(c-a)*r,dLo=(d-b)*r;const s=Math.sin(dLa/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
 function resolverZona(lat,lng){let best=null,bd=1e12;zonas.forEach(z=>{const d=distM(lat,lng,z.lat,z.lng);if(d<=z.radio_m&&d<bd){bd=d;best=z.nombre;}});return best;}
-function getPos(){return new Promise(res=>{if(!navigator.geolocation)return res(null);navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude,precision_m:Math.round(p.coords.accuracy)}),e=>res(null),{enableHighAccuracy:true,timeout:10000,maximumAge:0});});}
+function getPos(){return new Promise(res=>{
+  if(!navigator.geolocation)return res(null);
+  const go=()=>navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude,precision_m:Math.round(p.coords.accuracy)}),e=>res(null),{enableHighAccuracy:false,timeout:8000,maximumAge:300000});
+  if(navigator.permissions&&navigator.permissions.query){navigator.permissions.query({name:"geolocation"}).then(st=>{st.state==="granted"?go():res(null);}).catch(()=>res(null));}
+  else{res(null);}
+});}
+async function activarUbic(){
+  const m=$("#ubicMsg");
+  if(!navigator.geolocation){if(m)m.textContent="Este móvil no permite ubicación.";return;}
+  navigator.geolocation.getCurrentPosition(
+    p=>{if(m)m.innerHTML='<b style="color:var(--green)">✅ Ubicación activada. Ya no te volverá a preguntar.</b>';updateUbicUI();},
+    e=>{if(m)m.textContent="No se concedió la ubicación. Actívala en los ajustes del móvil (Ubicación: Al usar la app) y reintenta.";},
+    {enableHighAccuracy:false,timeout:10000,maximumAge:0});
+}
+window.activarUbic=activarUbic;
+async function updateUbicUI(){
+  try{
+    if(!(navigator.permissions&&navigator.permissions.query))return;
+    const st=await navigator.permissions.query({name:"geolocation"});
+    const b=$("#ubicBtn"),m=$("#ubicMsg");
+    if(st.state==="granted"){if(b)b.textContent="📍 Ubicación activada";if(m)m.innerHTML='<b style="color:var(--green)">✅ Activada.</b>';}
+    else if(st.state==="denied"){if(m)m.textContent="Ubicación bloqueada. Actívala en los ajustes del móvil si quieres que el fichaje registre la obra.";}
+  }catch(e){}
+}
+window.updateUbicUI=updateUbicUI;
 
 async function boot(){
   let token=params.get("u");
@@ -136,7 +160,7 @@ async function boot(){
   else if(!params.has("admin")){token=lsGet("azero_token");}
   if(params.has("admin"))return startAdmin();
   if(token){
-    const {data,error}=await db.from("conductores").select("id,nombre").eq("token",token).limit(1);
+    const {data,error}=await db.from("conductores").select("id,nombre,puede_herr").eq("token",token).limit(1);
     if(!error&&data&&data.length){worker=data[0];return startPersonal();}
     lsDel("azero_token");
     return renderCenter("Enlace no válido","Este enlace personal no es correcto. Pide a administración que te envíe el tuyo.",true);
@@ -179,8 +203,8 @@ async function loadBase(){
 /* PERSONAL */
 function startPersonal(){
   $("#who").innerHTML=`<b>${esc(worker.nombre)}</b><span>Tu acceso personal</span>`;
-  $("#tabs").innerHTML=`<button data-t="veh" onclick="pGo('veh')">Vehíc.</button><button data-t="fic" onclick="pGo('fic')">Fichaje</button><button data-t="herr" onclick="pGo('herr')">Herram.</button><button data-t="epi" onclick="pGo('epi')">EPIs</button>`;
-  pGo("veh");
+  $("#tabs").innerHTML=`<button data-t="fic" onclick="pGo('fic')">Fichaje</button><button data-t="veh" onclick="pGo('veh')">Vehíc.</button><button data-t="herr" onclick="pGo('herr')">Herram.</button><button data-t="epi" onclick="pGo('epi')">EPIs</button>`;
+  pGo("fic");
 }
 function pGo(t){[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")pVeh();if(t==="fic")pFic();if(t==="herr")pHerr();if(t==="epi")pEpi();}
 window.pGo=pGo;
@@ -229,9 +253,9 @@ window.devolver=devolver;
 
 /* FICHAJE */
 function pFic(){
-  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Avisos de fichaje</h2><p class="hint">Recibe un aviso en este móvil a las 07:00 (fichar entrada) y a las 17:00 (fichar salida), de lunes a viernes. En iPhone, añade antes la app a la pantalla de inicio.</p><button class="rowbtn blue" id="avisoBtn" onclick="activarAvisos()">🔔 Activar avisos en este móvil</button><div id="avisoMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Ubicación</h2><p class="hint">Para que el fichaje registre Taller u obra, concede el permiso de ubicación <b>una sola vez</b>. Después no te volverá a preguntar al fichar.</p><button class="rowbtn blue" id="ubicBtn" onclick="activarUbic()">📍 Activar ubicación</button><div id="ubicMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Avisos de fichaje</h2><p class="hint">Recibe un aviso en este móvil a las 07:00 (fichar entrada) y a las 17:00 (fichar salida), de lunes a viernes. En iPhone, añade antes la app a la pantalla de inicio.</p><button class="rowbtn blue" id="avisoBtn" onclick="activarAvisos()">🔔 Activar avisos en este móvil</button><div id="avisoMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
   if(!zonas.length)loadBase().catch(()=>{});
-  loadMisFichajes();loadVac();updateAvisoUI();
+  loadMisFichajes();loadVac();updateAvisoUI();updateUbicUI();
 }
 async function activarAvisos(){
   const m=$("#avisoMsg");
@@ -321,15 +345,21 @@ async function pedirVac(){
 window.pedirVac=pedirVac;
 
 /* HERRAMIENTAS (personal) */
-let herrList=[], hSub="almacen", repairId=null, hDetail=null, hFam=null;
+let herrList=[], hSub="almacen", repairId=null, hDetail=null, hFam=null, hReqTipo=null, misSol=[];
+function esGestor(){return !!(worker&&worker.puede_herr);}
 function obraOpts(){return obras.map(o=>{const t=esc(o.codigo+" · "+o.nombre);return `<option value="${t}">${t}</option>`;}).join("");}
 function familiaDe(h){if(h.categoria&&String(h.categoria).trim())return String(h.categoria).trim();const n=up(h.nombre||"");if(n.startsWith("TALADRO"))return "Taladros";if(n.startsWith("RADIAL"))return "Radiales";if(n.startsWith("ALARGO"))return "Alargos";if(n.startsWith("GRUPO SOLDAR"))return "Grupos de soldar";if(n.includes("SOPLETE"))return "Soplete";if(n.startsWith("MÁQUINA APRETAR")||n.startsWith("MAQUINA APRETAR"))return "Máquinas de apretar";if(n.startsWith("PISTOLA"))return "Pistolas de químico";if(n.startsWith("BATERÍA")||n.startsWith("BATERIA"))return "Baterías";if(n.startsWith("CARGADOR"))return "Cargadores";if(n.startsWith("CAJÓN")||n.startsWith("CAJON"))return "Cajones";return "Otros";}
 async function pHerr(){
   await loadBase().catch(()=>{});
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs"><button id="ha" onclick="hSet('almacen')">Almacén</button><button id="ho" onclick="hSet('obra')">En obra</button><button id="hr" onclick="hSet('reparacion')">Reparación</button></div><div id="hobrawrap" style="display:none"><label>⚠ Obra obligatoria — elígela antes de coger</label><select id="obra"><option value="">— Selecciona obra —</option><option value="Taller">Taller</option>${obraOpts()}</select></div><input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
+  const g=esGestor();
+  const subtabs=g
+   ?`<button id="ha" onclick="hSet('almacen')">Almacén</button><button id="ho" onclick="hSet('obra')">En obra</button><button id="hr" onclick="hSet('reparacion')">Reparación</button><button id="hsol" onclick="hSet('solicitudes')">Solicitudes</button>`
+   :`<button id="ha" onclick="hSet('almacen')">Inventario</button><button id="hms" onclick="hSet('missol')">Mis solicitudes</button>`;
+  const obraSel=g?`<div id="hobrawrap" style="display:none"><label>⚠ Obra obligatoria — elígela antes de coger</label><select id="obra"><option value="">— Selecciona obra —</option><option value="Taller">Taller</option>${obraOpts()}</select></div>`:"";
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs">${subtabs}</div>${obraSel}<input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
   await refreshHerr();hSet("almacen");
 }
-function hSet(s){hSub=s;repairId=null;hDetail=null;hFam=null;const map={almacen:"ha",obra:"ho",reparacion:"hr"};["ha","ho","hr"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
+function hSet(s){hSub=s;repairId=null;hDetail=null;hFam=null;hReqTipo=null;const map={almacen:"ha",obra:"ho",reparacion:"hr",solicitudes:"hsol",missol:"hms"};["ha","ho","hr","hsol","hms"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
 window.hSet=hSet;
 function setRepair(id){repairId=id;renderHerr();}
 window.setRepair=setRepair;
@@ -343,20 +373,80 @@ function backToTipos(){hDetail=null;repairId=null;renderHerr();}
 window.backToTipos=backToTipos;
 function backBar(label,fn){return `<button class="backbar" onclick="${fn}"><span class="ar">‹</span> ${esc(up(label))}</button>`;}
 function unitRow(h){let a="";if(repairId===h.id){a=repairForm(h.id);}else if(h.estado==="disponible"){a=`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="en_uso"){const mine=h.responsable_id===worker.id?" (tú)":"";a=`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="reparacion"){a=`<div class="d">🔧 En reparación${h.nota_reparacion?" — "+esc(h.nota_reparacion):""}</div>`;}else{a='<div class="d">Dada de baja</div>';}return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${a}</div>`;}
-async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data;renderHerr();}
+async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data;
+  try{
+    if(esGestor()){const s=await db.from("herramienta_solicitudes").select("*").order("created_at",{ascending:false}).limit(200);window._hsol=s.error?[]:s.data;}
+    else{const s=await db.from("herramienta_solicitudes").select("*").eq("trabajador_id",worker.id).order("created_at",{ascending:false}).limit(100);misSol=s.error?[]:s.data;}
+  }catch(e){}
+  renderHerr();}
 function estBadge(e){return e==="disponible"?'<span class="badge b-ok">Disponible</span>':e==="en_uso"?'<span class="badge b-use">En uso</span>':e==="reparacion"?'<span class="badge b-rep">Reparación</span>':'<span class="badge b-rep">Baja</span>';}
 function hMeta(h){return `<div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>`;}
 function repairForm(id){return `<div style="margin-top:9px"><input id="rep${id}" placeholder="Motivo del fallo (obligatorio, ej. no arranca)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="reportAveria(${id})">Enviar a reparación</button></div></div>`;}
+function unitRowView(h){
+  let a="";
+  if(repairId===h.id){a=repairForm(h.id);}
+  else if(h.estado==="disponible"){a=`<button class="rowbtn" onclick="setRepair(${h.id})">Avería</button>`;}
+  else if(h.estado==="en_uso"){a=`<div class="d">En obra: ${esc(h.obra_actual||"—")}</div><button class="rowbtn" onclick="setRepair(${h.id})">Avería</button>`;}
+  else if(h.estado==="reparacion"){a='<div class="d">🔧 En reparación</div>';}
+  else{a='<div class="d">Dada de baja</div>';}
+  return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${a}</div>`;
+}
+function openSolicitar(enc){hReqTipo=decodeURIComponent(enc);renderHerr();}
+window.openSolicitar=openSolicitar;
+function cancelSolicitar(){hReqTipo=null;renderHerr();}
+window.cancelSolicitar=cancelSolicitar;
+function solicitarForm(tipo){return `<div class="row" style="background:#faf1e8;border-radius:8px;padding:12px;margin-bottom:10px"><div class="t">Solicitar: ${esc(up(tipo))}</div><label style="margin-top:6px">Obra de destino</label><select id="solObra"><option value="">— Selecciona obra —</option><option value="Taller">Taller</option>${obraOpts()}</select><input id="solNota" placeholder="Nota (opcional)" style="margin-top:8px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="cancelSolicitar()">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="enviarSolicitud('${encodeURIComponent(tipo)}')">Enviar solicitud</button></div></div>`;}
+async function enviarSolicitud(enc){
+  const tipo=decodeURIComponent(enc);
+  const obra=($("#solObra")?.value||"").trim();
+  if(!obra){flashInput("solObra");return msg("#hErr","Elige la obra de destino.",true);}
+  const nota=($("#solNota")?.value||"").trim();
+  const fam=(herrList.find(h=>h.nombre===tipo)||{}).categoria||familiaDe({nombre:tipo});
+  const r=await db.from("herramienta_solicitudes").insert({tipo_nombre:tipo,familia:fam,obra,trabajador_id:worker.id,estado:"pendiente",nota:nota||null});
+  if(r.error)return msg("#hErr",r.error.message,true);
+  hReqTipo=null;msg("#hOk","✅ Solicitud enviada para "+obra+". Un gestor la asignará.");await refreshHerr();
+}
+window.enviarSolicitud=enviarSolicitud;
+function solEstado(e){return e==="pendiente"?'<span class="badge b-use">Pendiente</span>':e==="asignada"?'<span class="badge b-ok">Asignada</span>':'<span class="badge b-rep">Rechazada</span>';}
+function renderMisSol(body){
+  if(!misSol.length){body.innerHTML='<p class="empty">No has solicitado herramientas todavía.</p>';return;}
+  body.innerHTML=misSol.map(s=>`<div class="row"><div class="t">${esc(up(s.tipo_nombre||"—"))} ${solEstado(s.estado)}</div><div class="m">Obra: ${esc(s.obra||"—")}${s.nota?" · "+esc(s.nota):""}</div><div class="d">${fmt(s.created_at)}</div></div>`).join("");
+}
+function renderGestSol(body){
+  const sol=window._hsol||[];
+  const pend=sol.filter(s=>s.estado==="pendiente");
+  const resto=sol.filter(s=>s.estado!=="pendiente").slice(0,30);
+  let html=`<p class="count">Pendientes de asignar (${pend.length})</p>`;
+  html+=pend.length?pend.map(s=>{const avail=herrList.filter(h=>h.nombre===s.tipo_nombre&&h.estado==="disponible").length;return `<div class="row"><div class="t">${esc(up(s.tipo_nombre||"—"))}</div><div class="m">Obra: ${esc(s.obra||"—")} · Pide: ${esc(condMap[s.trabajador_id]||"—")}${s.nota?" · "+esc(s.nota):""}</div><div class="d">Disponibles: ${avail}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" ${avail?"":"disabled"} onclick="asignarSol(${s.id})">Asignar a obra</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="rechazarSol(${s.id})">Rechazar</button></div></div>`;}).join(""):'<p class="empty">No hay solicitudes pendientes.</p>';
+  if(resto.length){html+=`<p class="count">Histórico</p>`+resto.map(s=>`<div class="row"><div class="t">${esc(up(s.tipo_nombre||"—"))} ${solEstado(s.estado)}</div><div class="m">Obra: ${esc(s.obra||"—")} · ${esc(condMap[s.trabajador_id]||"—")}</div></div>`).join("");}
+  body.innerHTML=html;
+}
+async function asignarSol(id){
+  const sol=(window._hsol||[]).find(x=>x.id===id);if(!sol)return;
+  const unit=herrList.find(h=>h.nombre===sol.tipo_nombre&&h.estado==="disponible");
+  if(!unit)return msg("#hErr","No hay unidades disponibles de "+sol.tipo_nombre+".",true);
+  const r1=await db.from("herramientas").update({estado:"en_uso",obra_actual:sol.obra,responsable_id:sol.trabajador_id}).eq("id",unit.id);
+  if(r1.error)return msg("#hErr",r1.error.message,true);
+  await db.from("herramientas_mov").insert({herramienta_id:unit.id,trabajador_id:sol.trabajador_id,tipo:"coger",obra:sol.obra});
+  await db.from("herramienta_solicitudes").update({estado:"asignada",resuelta_at:new Date().toISOString(),herramienta_id:unit.id}).eq("id",id);
+  msg("#hOk","✅ Asignada a "+sol.obra+".");await refreshHerr();
+}
+window.asignarSol=asignarSol;
+async function rechazarSol(id){const r=await db.from("herramienta_solicitudes").update({estado:"rechazada",resuelta_at:new Date().toISOString()}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);msg("#hOk","Solicitud rechazada.");await refreshHerr();}
+window.rechazarSol=rechazarSol;
 function renderHerr(){
   const q=($("#hfil")?.value||"").toLowerCase();
-  const obw=$("#hobrawrap");if(obw)obw.style.display=(hSub==="almacen"&&(q||(hFam&&hDetail)))?"block":"none";
+  const g=esGestor();
+  const obw=$("#hobrawrap");if(obw)obw.style.display=(g&&hSub==="almacen"&&(q||(hFam&&hDetail)))?"block":"none";
   const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")).toLowerCase().includes(q));
   const body=$("#hbody");if(!body)return;
+  if(hSub==="missol"){renderMisSol(body);return;}
+  if(hSub==="solicitudes"){renderGestSol(body);return;}
   if(hSub==="almacen"){
     const disp=herrList.filter(h=>h.estado==="disponible").filter(match);
     if(q){
       if(!disp.length){body.innerHTML='<p class="empty">Sin resultados para esa búsqueda.</p>';return;}
-      body.innerHTML=`<p class="count">${disp.length} resultado${disp.length!==1?"s":""}</p>`+disp.sort((a,b)=>(a.codigo||"").localeCompare(b.codigo||"")).map(unitRow).join("");
+      body.innerHTML=`<p class="count">${disp.length} resultado${disp.length!==1?"s":""}</p>`+disp.sort((a,b)=>(a.codigo||"").localeCompare(b.codigo||"")).map(g?unitRow:unitRowView).join("");
     }else if(!hFam){
       const fam={};disp.forEach(h=>{const f=familiaDe(h);fam[f]=(fam[f]||0)+1;});
       const fams=Object.keys(fam).sort();
@@ -371,7 +461,10 @@ function renderHerr(){
     }else{
       const units=herrList.filter(h=>h.nombre===hDetail).sort((a,b)=>(a.codigo||"").localeCompare(b.codigo||""));
       const dispN=units.filter(h=>h.estado==="disponible").length;
-      body.innerHTML=backBar("Volver a "+hFam,"backToTipos()")+`<div class="crumb">${esc(up(hDetail))} · ${dispN} disponible${dispN!==1?"s":""} de ${units.length}</div>`+units.map(unitRow).join("");
+      let head=backBar("Volver a "+hFam,"backToTipos()")+`<div class="crumb">${esc(up(hDetail))} · ${dispN} disponible${dispN!==1?"s":""} de ${units.length}</div>`;
+      if(!g){head+=(hReqTipo===hDetail?solicitarForm(hDetail):`<button class="rowbtn blue" style="width:100%;margin-bottom:8px" onclick="openSolicitar('${encodeURIComponent(hDetail)}')">Solicitar para una obra</button>`)+units.map(unitRowView).join("");}
+      else{head+=units.map(unitRow).join("");}
+      body.innerHTML=head;
     }
   }else if(hSub==="obra"){
     const list=herrList.filter(h=>h.estado==="en_uso").filter(match);
