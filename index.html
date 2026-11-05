@@ -131,28 +131,35 @@ const wmHTML='<div class="wm">AZERO</div><div class="wms">Control interno</div>'
 
 function distM(a,b,c,d){const R=6371000,r=Math.PI/180;const dLa=(c-a)*r,dLo=(d-b)*r;const s=Math.sin(dLa/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
 function resolverZona(lat,lng){let best=null,bd=1e12;zonas.forEach(z=>{const d=distM(lat,lng,z.lat,z.lng);if(d<=z.radio_m&&d<bd){bd=d;best=z.nombre;}});return best;}
+let geoErr="";
 function getPos(){return new Promise(res=>{
-  if(!navigator.geolocation)return res(null);
-  const go=()=>navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude,precision_m:Math.round(p.coords.accuracy)}),e=>res(null),{enableHighAccuracy:false,timeout:8000,maximumAge:300000});
-  if(navigator.permissions&&navigator.permissions.query){navigator.permissions.query({name:"geolocation"}).then(st=>{st.state==="granted"?go():res(null);}).catch(()=>res(null));}
-  else{res(null);}
+  geoErr="";
+  if(!navigator.geolocation){geoErr="este móvil no permite ubicación";return res(null);}
+  const ok=p=>{lsSet("azero_ubic","1");res({lat:p.coords.latitude,lng:p.coords.longitude,precision_m:Math.round(p.coords.accuracy)});};
+  const fail=e=>{geoErr=e&&e.code===1?"permiso de ubicación denegado":e&&e.code===3?"no se pudo obtener la posición a tiempo":"ubicación no disponible";res(null);};
+  const go=()=>navigator.geolocation.getCurrentPosition(ok,e=>{
+    if(e&&e.code===3){navigator.geolocation.getCurrentPosition(ok,fail,{enableHighAccuracy:false,timeout:8000,maximumAge:600000});}else fail(e);
+  },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+  /* iPhone casi nunca informa "granted" aunque el permiso este dado: solo se descarta si esta DENEGADO */
+  if(navigator.permissions&&navigator.permissions.query){navigator.permissions.query({name:"geolocation"}).then(st=>{if(st.state==="denied"){geoErr="permiso de ubicación denegado";res(null);}else go();}).catch(go);}
+  else go();
 });}
 async function activarUbic(){
   const m=$("#ubicMsg");
   if(!navigator.geolocation){if(m)m.textContent="Este móvil no permite ubicación.";return;}
   navigator.geolocation.getCurrentPosition(
-    p=>{if(m)m.innerHTML='<b style="color:var(--green)">✅ Ubicación activada. Ya no te volverá a preguntar.</b>';updateUbicUI();},
+    p=>{lsSet("azero_ubic","1");if(m)m.innerHTML='<b style="color:var(--green)">✅ Ubicación activada (±'+Math.round(p.coords.accuracy)+' m).</b>';updateUbicUI();},
     e=>{if(m)m.textContent="No se concedió la ubicación. Actívala en los ajustes del móvil (Ubicación: Al usar la app) y reintenta.";},
     {enableHighAccuracy:false,timeout:10000,maximumAge:0});
 }
 window.activarUbic=activarUbic;
 async function updateUbicUI(){
   try{
-    if(!(navigator.permissions&&navigator.permissions.query))return;
-    const st=await navigator.permissions.query({name:"geolocation"});
     const b=$("#ubicBtn"),m=$("#ubicMsg");
-    if(st.state==="granted"){if(b)b.textContent="📍 Ubicación activada";if(m)m.innerHTML='<b style="color:var(--green)">✅ Activada.</b>';}
-    else if(st.state==="denied"){if(m)m.textContent="Ubicación bloqueada. Actívala en los ajustes del móvil si quieres que el fichaje registre la obra.";}
+    let state="prompt";
+    if(navigator.permissions&&navigator.permissions.query){try{state=(await navigator.permissions.query({name:"geolocation"})).state;}catch(e){}}
+    if(state==="granted"||(state!=="denied"&&lsGet("azero_ubic")==="1")){if(b)b.textContent="📍 Ubicación activada";if(m)m.innerHTML='<b style="color:var(--green)">✅ Activada.</b>';}
+    else if(state==="denied"){if(m)m.textContent="Ubicación bloqueada. Actívala en los ajustes del móvil si quieres que el fichaje registre la obra.";}
   }catch(e){}
 }
 window.updateUbicUI=updateUbicUI;
@@ -256,7 +263,7 @@ window.devolver=devolver;
 
 /* FICHAJE */
 function pFic(){
-  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Ubicación</h2><p class="hint">Para que el fichaje registre Taller u obra, concede el permiso de ubicación <b>una sola vez</b>. Después no te volverá a preguntar al fichar.</p><button class="rowbtn blue" id="ubicBtn" onclick="activarUbic()">📍 Activar ubicación</button><div id="ubicMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Avisos de fichaje</h2><p class="hint">Recibe un aviso en este móvil a las 07:00 (fichar entrada) y a las 17:00 (fichar salida), de lunes a viernes. En iPhone, añade antes la app a la pantalla de inicio.</p><button class="rowbtn blue" id="avisoBtn" onclick="activarAvisos()">🔔 Activar avisos en este móvil</button><div id="avisoMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Ubicación</h2><p class="hint">Para que el fichaje registre Taller u obra, pulsa el botón y elige <b>Permitir</b>. En iPhone, para que no vuelva a preguntar: <b>Ajustes → Apps → Safari → Ubicación → Permitir</b>.</p><button class="rowbtn blue" id="ubicBtn" onclick="activarUbic()">📍 Activar ubicación</button><div id="ubicMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Avisos de fichaje</h2><p class="hint">Recibe un aviso en este móvil a las 07:00 (fichar entrada) y a las 17:00 (fichar salida), de lunes a viernes. En iPhone, añade antes la app a la pantalla de inicio.</p><button class="rowbtn blue" id="avisoBtn" onclick="activarAvisos()">🔔 Activar avisos en este móvil</button><div id="avisoMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><h2>Mis últimos fichajes</h2><div id="misFic"><p class="empty">Cargando…</p></div></div>`;
   if(!zonas.length)loadBase().catch(()=>{});
   loadMisFichajes();loadVac();updateAvisoUI();updateUbicUI();
 }
@@ -293,7 +300,7 @@ async function fichar(tipo){
   const pos=await getPos();
   let lugar=null;
   if(pos)lugar=resolverZona(pos.lat,pos.lng);
-  g.textContent=pos?(lugar?("📍 "+lugar):("📍 Ubicación registrada (±"+pos.precision_m+" m)")):"📍 Sin ubicación (se ficha igualmente)";
+  g.textContent=pos?(lugar?("📍 "+lugar):("📍 Ubicación registrada (±"+pos.precision_m+" m)")):("📍 Sin ubicación"+(geoErr?" ("+geoErr+")":"")+" — se ficha igualmente");
   const rec={trabajador_id:worker.id,tipo};
   if(pos){rec.lat=pos.lat;rec.lng=pos.lng;rec.precision_m=pos.precision_m;}
   if(lugar)rec.lugar=lugar;
