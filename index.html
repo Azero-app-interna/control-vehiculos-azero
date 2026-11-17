@@ -677,10 +677,10 @@ window.setAdmRepair=setAdmRepair;
 function admRepairForm(id){return `<div style="margin-top:9px"><input id="arep${id}" placeholder="Motivo del fallo (obligatorio)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setAdmRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="admAveria(${id})">Enviar a reparación</button></div></div>`;}
 async function aHerr(){
   $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
-  const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("herramienta_id,trabajador_id,tipo,obra,nota,created_at").order("created_at",{ascending:false}).limit(200)]);
+  const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("*").order("created_at",{ascending:false}).limit(200)]);
   window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);await loadASol();aHSet(_bc.herr>0?"sol":"almacen");
   const m=mov.error?[]:mov.data;
-  $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||"herr #"+x.herramienta_id))} — ${movLabel(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}${x.nota?" · "+esc(x.nota):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
+  $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||x.herramienta_nombre||"herr #"+x.herramienta_id))} — ${movLabel(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}${x.nota?" · "+esc(x.nota):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
 }
 function aHSet(s){aHSub=s;admRepairId=null;invReset();const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib",sol:"is"};["ia","io","ir","ib","is"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
 window.aHSet=aHSet;
@@ -789,7 +789,7 @@ async function saveHerr(id){
   invEditId=null;msg("#hOk","✅ Cambios guardados.");await refreshInv();
 }
 window.saveHerr=saveHerr;
-async function delHerr(id){const r=await db.from("herramientas").delete().eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);invDelId=null;msg("#hOk","Herramienta borrada.");await refreshInv();}
+async function delHerr(id){const r=await db.from("herramientas").delete().eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);invDelId=null;msg("#hOk","Herramienta borrada (su historial se conserva en la auditoría).");await refreshInv();}
 window.delHerr=delHerr;
 function invUnitCard(h){
   const meta=`<div class="m">${esc(h.codigo||"sin código")}${h.marca?" · "+esc(h.marca):""}${h.num_serie?" · nº "+esc(h.num_serie):""}</div>`;
