@@ -235,7 +235,9 @@ function vSet(s){vSub=s;$("#sc").classList.toggle("active",s==="coger");$("#su")
 window.vSet=vSet;
 function vCoger(){
   const libres=vehiculos.filter(x=>!x.en_uso);
-  $("#vbody").innerHTML=`<label>Vehículo disponible</label><select id="veh"><option value="">SELECCIONA VEHÍCULO</option>${libres.map(x=>`<option value="${x.id}">${esc(up(x.nombre))} — ${esc(up(x.matricula))}</option>`).join("")}</select><button class="primary" onclick="coger()">COGER VEHÍCULO</button><p class="hint" style="margin-top:10px">Quedará registrado a tu nombre (${esc(worker.nombre)}) con la fecha y hora.</p>`;
+  const mio=vehiculos.find(x=>x.en_uso&&x.conductor_actual_id===worker.id);
+  if(mio){$("#vbody").innerHTML=`<p class="hint">Ya llevas <b>${esc(up(mio.nombre))} (${esc(up(mio.matricula))})</b>. Devuélvelo antes de coger otro.</p><button class="primary" onclick="devolver(${mio.id},this)">DEVOLVER ${esc(up(mio.matricula))}</button>`;return;}
+  $("#vbody").innerHTML=`<label>Elige el vehículo (se coge al seleccionarlo)</label><select id="veh" onchange="if(this.value)coger()"><option value="">SELECCIONA VEHÍCULO</option>${libres.map(x=>`<option value="${x.id}">${esc(up(x.nombre))} — ${esc(up(x.matricula))}</option>`).join("")}</select><p class="hint" style="margin-top:10px">Al elegir la matrícula queda registrado a tu nombre (${esc(worker.nombre)}) con la fecha y hora. Si te equivocas, devuélvelo en "En uso".</p>`;
 }
 async function coger(){
   const vid=+$("#veh").value;if(!vid){msg("#vErr","Selecciona un vehículo.",true);return;}
@@ -252,24 +254,28 @@ async function coger(){
 }
 window.coger=coger;
 async function vUso(){
-  const enUso=vehiculos.filter(x=>x.en_uso);
+  const enUso=vehiculos.filter(x=>x.en_uso&&x.conductor_actual_id===worker.id);
   const reg=await db.from("registros").select("vehiculo_id,created_at").is("fecha_devolucion",null).order("created_at",{ascending:false});
   const desde={};if(!reg.error)reg.data.forEach(r=>{if(!(r.vehiculo_id in desde))desde[r.vehiculo_id]=r.created_at;});
-  if(!enUso.length){$("#vbody").innerHTML='<p class="empty">No hay vehículos en uso ahora mismo.</p>';return;}
-  $("#vbody").innerHTML=enUso.map(v=>`<div class="row"><div class="flex"><div><div class="t">${esc(up(v.nombre))} <span class="badge b-veh">${esc(up(v.matricula))}</span></div><div class="m">Conductor: ${esc(condMap[v.conductor_actual_id]||"—")}${desde[v.id]?" · desde "+fmt(desde[v.id]):""}</div></div><button class="rowbtn grn" onclick="devolver(${v.id})">Devolver</button></div></div>`).join("");
+  if(!enUso.length){$("#vbody").innerHTML='<p class="empty">No llevas ningún vehículo ahora mismo.</p>';return;}
+  $("#vbody").innerHTML=enUso.map(v=>`<div class="row"><div class="flex"><div><div class="t">${esc(up(v.nombre))} <span class="badge b-veh">${esc(up(v.matricula))}</span></div><div class="m">Lo llevas tú${desde[v.id]?" · desde "+fmt(desde[v.id]):""}</div></div><button class="rowbtn grn" onclick="devolver(${v.id},this)">Devolver</button></div></div>`).join("");
 }
-async function devolver(vid){
-  const r1=await db.from("registros").update({fecha_devolucion:new Date().toISOString()}).eq("vehiculo_id",vid).is("fecha_devolucion",null);
-  if(r1.error)return msg("#vErr",r1.error.message,true);
-  const r2=await db.from("vehiculos").update({en_uso:false,conductor_actual_id:null}).eq("id",vid);
-  if(r2.error)return msg("#vErr",r2.error.message,true);
-  msg("#vOk","✅ "+(vehMap[vid]?up(vehMap[vid].nombre):"Vehículo")+" devuelto.");await loadBase();vSet("uso");
+async function devolver(vid,btn){
+  if(btn)btn.disabled=true;
+  const chk=await db.from("vehiculos").select("en_uso,conductor_actual_id").eq("id",vid).single();
+  if(chk.error||!chk.data||!chk.data.en_uso||chk.data.conductor_actual_id!==worker.id){if(btn)btn.disabled=false;await loadBase();if($("#vbody"))vSet("uso");await refreshBadges();return msg("#vErr","Ese vehículo no está a tu nombre.",true);}
+  const r1=await db.from("registros").update({fecha_devolucion:new Date().toISOString()}).eq("vehiculo_id",vid).eq("conductor_id",worker.id).is("fecha_devolucion",null);
+  if(r1.error){if(btn)btn.disabled=false;return msg("#vErr",r1.error.message,true);}
+  const r2=await db.from("vehiculos").update({en_uso:false,conductor_actual_id:null}).eq("id",vid).eq("conductor_actual_id",worker.id);
+  if(r2.error){if(btn)btn.disabled=false;return msg("#vErr",r2.error.message,true);}
+  const nom=(vehMap[vid]?up(vehMap[vid].nombre):"Vehículo");
+  await loadBase();if($("#vbody"))vSet("uso");msg("#vOk","✅ "+nom+" devuelto.");await refreshBadges();return true;
 }
 window.devolver=devolver;
 
 /* FICHAJE */
 function pFic(){
-  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="lastFic" class="hint" style="margin-top:8px"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Ubicación</h2><p class="hint">Para que el fichaje registre Taller u obra, pulsa el botón y elige <b>Permitir</b>. En iPhone, para que no vuelva a preguntar: <b>Ajustes → Apps → Safari → Ubicación → Permitir</b>.</p><button class="rowbtn blue" id="ubicBtn" onclick="activarUbic()">📍 Activar ubicación</button><div id="ubicMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Avisos de fichaje</h2><p class="hint">Recibe un aviso en este móvil a las 07:00 (fichar entrada) y a las 17:00 (fichar salida), de lunes a viernes. En iPhone, añade antes la app a la pantalla de inicio.</p><button class="rowbtn blue" id="avisoBtn" onclick="activarAvisos()">🔔 Activar avisos en este móvil</button><div id="avisoMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><button class="rowbtn" id="misFicBtn" style="width:100%" onclick="toggleMisFic()">📋 Ver mis fichajes</button><div id="misFic" style="display:none;margin-top:10px"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Fichaje</h2><p class="hint">${esc(worker.nombre)} — pulsa entrada o salida. Al fichar se usa tu ubicación para detectar Taller u obra.</p><div class="btnrow"><button class="b-entrada" onclick="fichar('entrada')">ENTRADA</button><button class="b-salida" onclick="fichar('salida')">SALIDA</button></div><div id="gps" class="gps" style="display:none"></div><div id="lastFic" class="hint" style="margin-top:8px"></div><div id="fOk" class="ok"></div><div id="fErr" class="error"></div></div><div class="card"><h2>Ubicación</h2><p class="hint">Para que el fichaje registre Taller u obra, pulsa el botón y elige <b>Permitir</b>. En iPhone, para que no vuelva a preguntar: <b>Ajustes → Privacidad y seguridad → Localización → Sitios web de Safari → Mientras se usa la app</b> (con "Ubicación exacta" activada) y <b>Ajustes → Apps → Safari → Ubicación → Permitir</b>.</p><button class="rowbtn blue" id="ubicBtn" onclick="activarUbic()">📍 Activar ubicación</button><div id="ubicMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Avisos de fichaje</h2><p class="hint">Recibe un aviso en este móvil a las 07:00 (fichar entrada) y a las 17:00 (fichar salida), de lunes a viernes. En iPhone, añade antes la app a la pantalla de inicio.</p><button class="rowbtn blue" id="avisoBtn" onclick="activarAvisos()">🔔 Activar avisos en este móvil</button><div id="avisoMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><h2>Vacaciones</h2><div id="vacSummary" class="hint">Cargando…</div><div id="vacForm"></div><button class="rowbtn blue" id="vacBtn" onclick="openVacForm()">Solicitar días</button><div id="vacMine" style="margin-top:6px"></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div><div class="card"><button class="rowbtn" id="misFicBtn" style="width:100%" onclick="toggleMisFic()">📋 Ver mis fichajes</button><div id="misFic" style="display:none;margin-top:10px"><p class="empty">Cargando…</p></div></div>`;
   if(!zonas.length)loadBase().catch(()=>{});
   loadMisFichajes();loadVac();updateAvisoUI();updateUbicUI();
 }
@@ -917,9 +923,11 @@ function renderVehAviso(){
   let el=$("#vehAviso");const list=worker?(window._myVeh||[]):[];
   if(!list.length){if(el)el.remove();return;}
   if(!el){el=document.createElement("div");el.id="vehAviso";el.className="vehaviso";const app=$("#app");app.parentNode.insertBefore(el,app);}
-  el.innerHTML=`<div class="vtxt">🚗 <b>Llevas ${list.map(v=>esc(up(v.nombre))+" ("+esc(up(v.matricula))+")").join(", ")}</b>${list[0].desde?"<br>Desde "+fmt(list[0].desde):""}<br>Recuerda devolverlo al terminar.</div><button onclick="irDevolver()">Devolver</button>`;
+  el.innerHTML=`<div class="vtxt">🚗 <b>Llevas ${list.map(v=>esc(up(v.nombre))+" ("+esc(up(v.matricula))+")").join(", ")}</b>${list[0].desde?"<br>Desde "+fmt(list[0].desde):""}<br>Recuerda devolverlo al terminar.</div>${list.map(v=>`<button onclick="devolverAviso(${v.id},this)">Devolver${list.length>1?" "+esc(up(v.matricula)):""}</button>`).join("")}`;
 }
 function irDevolver(){window._vehGoUso=true;pGo("veh");}
+async function devolverAviso(vid,btn){const ok=await devolver(vid,btn);const el=$("#vehAviso");if(ok&&el){el.innerHTML='<div class="vtxt">✅ <b>Vehículo devuelto.</b> Gracias.</div>';setTimeout(()=>{window._myVeh=[];renderVehAviso();refreshBadges();},2200);}}
+window.devolverAviso=devolverAviso;
 window.irDevolver=irDevolver;
 function applyBadges(){
   setBtnBadge(document.querySelector('#tabs button[data-t="veh"]'),_bc.veh||0);renderVehAviso();
