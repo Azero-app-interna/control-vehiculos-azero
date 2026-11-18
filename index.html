@@ -603,7 +603,7 @@ async function renderAdmin(){
 function aGo(t){if(adminRol==="herr"&&(t==="veh"||t==="fic"))t="herr";[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();if(t==="epi")aEpi();refreshBadges();}
 window.aGo=aGo;
 async function aVeh(){
-  $("#app").innerHTML=`<div class="card"><h2>Historial de vehículos</h2><p class="hint">Quién ha cogido y devuelto cada vehículo.</p><input id="afil" placeholder="Buscar conductor, vehículo o matrícula" oninput="rVeh()"><div id="avbody"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Vehículos en uso ahora</h2><div id="avuso">${vehUsoAhora()}</div></div><div class="card"><h2>Historial de vehículos</h2><button class="rowbtn" style="width:100%" onclick="togHist('avwrap',this,'📋 Ver historial de vehículos')">📋 Ver historial de vehículos</button><div id="avwrap" style="display:none;margin-top:10px"><p class="hint">Quién ha cogido y devuelto cada vehículo.</p><input id="afil" placeholder="Buscar conductor, vehículo o matrícula" oninput="rVeh()"><div id="avbody"><p class="empty">Cargando…</p></div></div></div>`;
   const {data,error}=await db.from("registros").select("conductor_id,vehiculo_id,created_at,fecha_devolucion").order("created_at",{ascending:false}).limit(500);
   window._regs=error?[]:data;rVeh();
 }
@@ -614,6 +614,9 @@ function rVeh(){
   $("#avbody").innerHTML=rows.map(r=>`<div class="row"><div class="t">${esc(r.c)} → ${esc(r.vn)} <span class="badge b-veh">${esc(r.mat)}</span></div><div class="m">Cogido: ${fmt(r.ts)}</div><div class="d">${r.dev?"Devuelto: "+fmt(r.dev):'<b style="color:var(--amber)">Aún en uso</b>'}</div></div>`).join("");
 }
 window.rVeh=rVeh;
+function togHist(id,btn,lbl){const d=$("#"+id);if(!d)return;const show=d.style.display==="none";d.style.display=show?"block":"none";if(btn)btn.textContent=show?"Ocultar":lbl;}
+window.togHist=togHist;
+function vehUsoAhora(){const u=(vehiculos||[]).filter(v=>v.en_uso);return u.length?u.map(v=>`<div class="row"><div class="t">${esc(up(v.nombre))} <span class="badge b-veh">${esc(up(v.matricula))}</span></div><div class="m">Conductor: ${esc(condMap[v.conductor_actual_id]||"—")}</div></div>`).join(""):'<p class="empty">Ningún vehículo en uso.</p>';}
 let aFicSub="fichajes";
 async function aFic(){
   $("#app").innerHTML=`<div class="card"><h2>Fichajes y vacaciones</h2><div class="subtabs"><button id="af1" onclick="aFicSet('fichajes')">Fichajes</button><button id="af2" onclick="aFicSet('vac')">Vacaciones</button><button id="af3" onclick="aFicSet('horarios')">Horarios</button></div><div id="afwrap"><p class="empty">Cargando…</p></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div>`;
@@ -644,7 +647,7 @@ async function guardarHorario(id){
 }
 window.guardarHorario=guardarHorario;
 async function aVac(){}
-function renderAFic(){const wrap=$("#afwrap");if(!wrap)return;wrap.innerHTML=`<input id="affil" placeholder="Buscar trabajador, tipo o lugar" oninput="rFic()"><div id="afbody"><p class="empty">Cargando…</p></div>`;rFic();}
+function renderAFic(){const wrap=$("#afwrap");if(!wrap)return;const hoy=new Date().toDateString(),nHoy=(window._fics||[]).filter(f=>new Date(f.created_at).toDateString()===hoy).length;wrap.innerHTML=`<p class="hint">Hoy: <b>${nHoy}</b> fichajes registrados.</p><button class="rowbtn" style="width:100%" onclick="togHist('afhist',this,'📋 Ver registro de fichajes')">📋 Ver registro de fichajes</button><div id="afhist" style="display:none;margin-top:10px"><input id="affil" placeholder="Buscar trabajador, tipo o lugar" oninput="rFic()"><div id="afbody"><p class="empty">Cargando…</p></div></div>`;rFic();}
 function rFic(){
   const q=(document.getElementById("affil")?.value||"").toLowerCase();
   const rows=(window._fics||[]).map(f=>({n:condMap[f.trabajador_id]||"?",tipo:f.tipo,lat:f.lat,lng:f.lng,lugar:f.lugar,ts:f.created_at})).filter(r=>!q||(r.n+" "+r.tipo+" "+(r.lugar||"")).toLowerCase().includes(q));
@@ -676,7 +679,7 @@ function setAdmRepair(id){admRepairId=id;rInv();}
 window.setAdmRepair=setAdmRepair;
 function admRepairForm(id){return `<div style="margin-top:9px"><input id="arep${id}" placeholder="Motivo del fallo (obligatorio)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setAdmRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="admAveria(${id})">Enviar a reparación</button></div></div>`;}
 async function aHerr(){
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><div id="amov"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><button class="rowbtn" style="width:100%" onclick="togHist('amovw',this,'📋 Ver auditoría de movimientos')">📋 Ver auditoría de movimientos</button><div id="amovw" style="display:none;margin-top:10px"><div id="amov"><p class="empty">Cargando…</p></div></div></div>`;
   const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("*").order("created_at",{ascending:false}).limit(200)]);
   window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);await loadASol();aHSet(_bc.herr>0?"sol":"almacen");
   const m=mov.error?[]:mov.data;
