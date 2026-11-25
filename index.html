@@ -84,7 +84,23 @@ button:disabled{opacity:.5}
 a.maps{color:var(--accent);text-decoration:none;font-size:12px}
 #hobrawrap{background:#fff4ec;border:1px solid #f6d3b3;border-radius:8px;padding:6px 12px 12px;margin-top:8px}
 #hobrawrap label{color:var(--accent)}
-.tilegrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.tilegrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:6px}
+.tile{min-width:0}
+.tile .tn{overflow-wrap:anywhere;word-break:break-word;hyphens:auto}
+.subtabs{flex-wrap:wrap}
+.subtabs:has(> button:nth-child(4)) button{flex:1 1 calc(50% - 4px)}
+.subtabs:has(> button:nth-child(5)) button{flex:1 1 calc(33.33% - 6px)}
+.archbox{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#faf6f2;border:1px dashed var(--line);border-radius:8px;padding:10px;margin:8px 0}
+.archbox span{font-size:12px;font-weight:800;color:#6b6862;text-transform:uppercase}
+.archbox input{width:auto;flex:1;min-width:140px;padding:8px;font-size:14px}
+.rep table{width:100%;border-collapse:collapse;font-size:12px;margin:6px 0 14px}
+.rep th,.rep td{border:1px solid #ddd;padding:4px 6px;text-align:left;vertical-align:top}
+.rep th{background:#f0eeeb}
+.rep h3{font-size:15px;margin:16px 0 4px;color:#e2680f;border-bottom:2px solid #e2680f;padding-bottom:3px}
+.rep h4{font-size:13px;margin:10px 0 2px}
+.repwrap{overflow-x:auto}
+#printArea{display:none}
+@media print{body.printing>*:not(#printArea){display:none!important}body.printing #printArea{display:block!important}body.printing{background:#fff}#printArea .rep table{font-size:10px}#printArea h3{break-after:avoid}#printArea tr{break-inside:avoid}}
 .tile{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:6px;background:#fff;border:2px solid var(--line);border-radius:14px;padding:20px 12px;min-height:92px;cursor:pointer;font-family:inherit;box-shadow:var(--shadow);transition:border-color .12s,transform .05s}
 .tile:active{transform:scale(.97);border-color:var(--accent)}
 .tile .tn{font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;color:var(--ink);line-height:1.15}
@@ -601,16 +617,16 @@ window.pedirEpi=pedirEpi;
 async function renderAdmin(){
   const lim=adminRol==="herr";
   $("#who").innerHTML=`<b>Administrador${lim?' · Herram. y EPIs':''}</b><button class="linkbtn" onclick="adminLogout()">Cerrar sesión</button>`;
-  $("#tabs").innerHTML=(lim?'':`<button data-t="veh" onclick="aGo('veh')">Vehíc.</button><button data-t="fic" onclick="aGo('fic')">Fichaje</button>`)+`<button data-t="herr" onclick="aGo('herr')">Herram.</button><button data-t="epi" onclick="aGo('epi')">EPIs</button>`;
+  $("#tabs").innerHTML=(lim?'':`<button data-t="veh" onclick="aGo('veh')">Vehíc.</button><button data-t="fic" onclick="aGo('fic')">Fichaje</button>`)+`<button data-t="herr" onclick="aGo('herr')">Herram.</button><button data-t="epi" onclick="aGo('epi')">EPIs</button><button data-t="inf" onclick="aGo('inf')">Informes</button>`;
   $("#app").innerHTML='<div class="card"><p class="empty">Cargando…</p></div>';
   try{await loadBase();}catch(e){}
   aGo(lim?"herr":"veh");
 }
-function aGo(t){if(adminRol==="herr"&&(t==="veh"||t==="fic"))t="herr";[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();if(t==="epi")aEpi();refreshBadges();}
+function aGo(t){if(adminRol==="herr"&&(t==="veh"||t==="fic"))t="herr";[...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('active',b.dataset.t===t));if(t==="veh")aVeh();if(t==="fic")aFic();if(t==="herr")aHerr();if(t==="epi")aEpi();if(t==="inf")aInf();refreshBadges();}
 window.aGo=aGo;
 async function aVeh(){
-  $("#app").innerHTML=`<div class="card"><h2>Vehículos en uso ahora</h2><div id="avuso">${vehUsoAhora()}</div></div><div class="card"><h2>Historial de vehículos</h2><button class="rowbtn" style="width:100%" onclick="togHist('avwrap',this,'📋 Ver historial de vehículos')">📋 Ver historial de vehículos</button><div id="avwrap" style="display:none;margin-top:10px"><p class="hint">Quién ha cogido y devuelto cada vehículo.</p><input id="afil" placeholder="Buscar conductor, vehículo o matrícula" oninput="rVeh()"><div id="avbody"><p class="empty">Cargando…</p></div></div></div>`;
-  const {data,error}=await db.from("registros").select("conductor_id,vehiculo_id,created_at,fecha_devolucion").order("created_at",{ascending:false}).limit(500);
+  $("#app").innerHTML=`<div class="card"><h2>Vehículos en uso ahora</h2><div id="avuso">${vehUsoAhora()}</div></div><div class="card"><h2>Historial de vehículos</h2><button class="rowbtn" style="width:100%" onclick="togHist('avwrap',this,'📋 Ver historial de vehículos')">📋 Ver historial de vehículos</button><div id="avwrap" style="display:none;margin-top:10px">${archBox('veh')}<p class="hint">Quién ha cogido y devuelto cada vehículo.</p><input id="afil" placeholder="Buscar conductor, vehículo o matrícula" oninput="rVeh()"><div id="avbody"><p class="empty">Cargando…</p></div></div></div>`;
+  const {data,error}=await db.from("registros").select("conductor_id,vehiculo_id,created_at,fecha_devolucion").eq("archivado",false).order("created_at",{ascending:false}).limit(500);
   window._regs=error?[]:data;rVeh();
 }
 function rVeh(){
@@ -627,7 +643,7 @@ let aFicSub="fichajes";
 async function aFic(){
   $("#app").innerHTML=`<div class="card"><h2>Fichajes y vacaciones</h2><div class="subtabs"><button id="af1" onclick="aFicSet('fichajes')">Fichajes</button><button id="af2" onclick="aFicSet('vac')">Vacaciones</button><button id="af3" onclick="aFicSet('horarios')">Horarios</button></div><div id="afwrap"><p class="empty">Cargando…</p></div><div id="vacOk" class="ok"></div><div id="vacErr" class="error"></div></div>`;
   const [f,v]=await Promise.all([
-    db.from("fichajes").select("trabajador_id,tipo,lat,lng,precision_m,lugar,created_at").order("created_at",{ascending:false}).limit(500),
+    db.from("fichajes").select("trabajador_id,tipo,lat,lng,precision_m,lugar,created_at").eq("archivado",false).order("created_at",{ascending:false}).limit(500),
     db.from("vacaciones").select("*").order("created_at",{ascending:false}).limit(500)
   ]);
   window._fics=f.error?[]:f.data; window._vac=v.error?[]:v.data;
@@ -653,7 +669,7 @@ async function guardarHorario(id){
 }
 window.guardarHorario=guardarHorario;
 async function aVac(){}
-function renderAFic(){const wrap=$("#afwrap");if(!wrap)return;const hoy=new Date().toDateString(),nHoy=(window._fics||[]).filter(f=>new Date(f.created_at).toDateString()===hoy).length;wrap.innerHTML=`<p class="hint">Hoy: <b>${nHoy}</b> fichajes registrados.</p><button class="rowbtn" style="width:100%" onclick="togHist('afhist',this,'📋 Ver registro de fichajes')">📋 Ver registro de fichajes</button><div id="afhist" style="display:none;margin-top:10px"><input id="affil" placeholder="Buscar trabajador, tipo o lugar" oninput="rFic()"><div id="afbody"><p class="empty">Cargando…</p></div></div>`;rFic();}
+function renderAFic(){const wrap=$("#afwrap");if(!wrap)return;const hoy=new Date().toDateString(),nHoy=(window._fics||[]).filter(f=>new Date(f.created_at).toDateString()===hoy).length;wrap.innerHTML=`<p class="hint">Hoy: <b>${nHoy}</b> fichajes registrados.</p><button class="rowbtn" style="width:100%" onclick="togHist('afhist',this,'📋 Ver registro de fichajes')">📋 Ver registro de fichajes</button><div id="afhist" style="display:none;margin-top:10px">${archBox('fic')}<input id="affil" placeholder="Buscar trabajador, tipo o lugar" oninput="rFic()"><div id="afbody"><p class="empty">Cargando…</p></div></div>`;rFic();}
 function rFic(){
   const q=(document.getElementById("affil")?.value||"").toLowerCase();
   const rows=(window._fics||[]).map(f=>({n:condMap[f.trabajador_id]||"?",tipo:f.tipo,lat:f.lat,lng:f.lng,lugar:f.lugar,ts:f.created_at})).filter(r=>!q||(r.n+" "+r.tipo+" "+(r.lugar||"")).toLowerCase().includes(q));
@@ -685,8 +701,8 @@ function setAdmRepair(id){admRepairId=id;rInv();}
 window.setAdmRepair=setAdmRepair;
 function admRepairForm(id){return `<div style="margin-top:9px"><input id="arep${id}" placeholder="Motivo del fallo (obligatorio)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setAdmRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="admAveria(${id})">Enviar a reparación</button></div></div>`;}
 async function aHerr(){
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><button class="rowbtn" style="width:100%" onclick="togHist('amovw',this,'📋 Ver auditoría de movimientos')">📋 Ver auditoría de movimientos</button><div id="amovw" style="display:none;margin-top:10px"><div id="amov"><p class="empty">Cargando…</p></div></div></div>`;
-  const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("*").order("created_at",{ascending:false}).limit(200)]);
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><button class="rowbtn" style="width:100%" onclick="togHist('amovw',this,'📋 Ver auditoría de movimientos')">📋 Ver auditoría de movimientos</button><div id="amovw" style="display:none;margin-top:10px">${archBox('herr')}<div id="amov"><p class="empty">Cargando…</p></div></div></div>`;
+  const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("*").eq("archivado",false).order("created_at",{ascending:false}).limit(200)]);
   window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);await loadASol();aHSet(_bc.herr>0?"sol":"almacen");
   const m=mov.error?[]:mov.data;
   $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||x.herramienta_nombre||"herr #"+x.herramienta_id))} — ${movLabel(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}${x.nota?" · "+esc(x.nota):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
@@ -838,7 +854,7 @@ async function aEpi(){
 async function refreshAEpi(){
   const [c,s]=await Promise.all([
     db.from("epis").select("*").order("nombre"),
-    db.from("epi_solicitudes").select("*").order("created_at",{ascending:false}).limit(300)
+    db.from("epi_solicitudes").select("*").eq("archivado",false).order("created_at",{ascending:false}).limit(300)
   ]);
   window._epiCat=c.error?[]:c.data; window._epiSol=s.error?[]:s.data;
   window._epiMap={};window._epiCat.forEach(x=>window._epiMap[x.id]=x);
@@ -875,7 +891,7 @@ function renderAEpi(){applyBadges();
     body.innerHTML=html;
   }else{
     const firm=sol.filter(s=>s.estado==="firmado");
-    body.innerHTML=`<p class="hint" style="margin-bottom:8px">Comprobante de recepción de EPI firmado por cada trabajador (documentación para la empresa).</p><p class="count">Firmadas (${firm.length})</p>`+(firm.length?firm.map(s=>{const esp=!s.epi_id;return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} — ${esc(up(solNom(s)))} ${esp?'<span class="badge b-zona">Especial</span> ':''}<span class="badge b-ok">Firmado</span></div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Entregado: ${fmt(s.fecha_entrega)} · Firmado: ${fmt(s.fecha_firma)}</div>${s.firma?`<img src="${s.firma}" alt="firma" style="margin-top:6px;max-width:240px;width:100%;border:1px solid var(--line);border-radius:6px;background:#fff">`:""}</div>`;}).join(""):'<p class="empty">Aún no hay entregas firmadas.</p>');
+    body.innerHTML=archBox('epi')+`<p class="hint" style="margin-bottom:8px">Comprobante de recepción de EPI firmado por cada trabajador (documentación para la empresa).</p><p class="count">Firmadas (${firm.length})</p>`+(firm.length?firm.map(s=>{const esp=!s.epi_id;return `<div class="row"><div class="t">${esc(condMap[s.trabajador_id]||"—")} — ${esc(up(solNom(s)))} ${esp?'<span class="badge b-zona">Especial</span> ':''}<span class="badge b-ok">Firmado</span></div><div class="m">${s.cantidad>1?s.cantidad+" uds":"1 ud"}${s.talla?" · talla "+esc(s.talla):""}</div><div class="d">Entregado: ${fmt(s.fecha_entrega)} · Firmado: ${fmt(s.fecha_firma)}</div>${s.firma?`<img src="${s.firma}" alt="firma" style="margin-top:6px;max-width:240px;width:100%;border:1px solid var(--line);border-radius:6px;background:#fff">`:""}</div>`;}).join(""):'<p class="empty">Aún no hay entregas firmadas.</p>');
   }
 }
 async function entregarEpi(id){
@@ -915,6 +931,122 @@ window.setStockTallas=setStockTallas;
 
 function flashInput(id){const el=document.getElementById(id);if(!el)return;el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");try{el.focus();}catch(e){}setTimeout(()=>el.classList.remove("flash"),900);}
 function msg(sel,text,isErr){const e=$(sel);if(!e)return;e.textContent=text;e.style.display="block";if(!isErr){setTimeout(()=>e.style.display="none",2600);refreshBadges();}}
+
+/* ARCHIVAR HISTORIAL (no borra: oculta de la app y sigue en informes) */
+function primeroMes(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01";}
+function archBox(sec){return `<div class="archbox"><span>Archivar lo anterior al</span><input type="date" id="arch_${sec}" value="${primeroMes()}"><button class="rowbtn" onclick="archivar('${sec}',this)">🗄 Archivar</button></div><p class="hint" style="margin-top:-4px">Lo archivado deja de verse aquí, pero se conserva y sigue saliendo en los Informes.</p>`;}
+async function archivar(sec,btn){
+  const v=$("#arch_"+sec)?.value;if(!v)return;
+  if(!btn.dataset.ok){btn.dataset.ok="1";btn.textContent="¿Seguro? Pulsa otra vez";setTimeout(()=>{btn.dataset.ok="";btn.textContent="🗄 Archivar";},5000);return;}
+  btn.disabled=true;const lim=new Date(v+"T00:00:00").toISOString();
+  let q;
+  if(sec==="fic")q=db.from("fichajes").update({archivado:true}).lt("created_at",lim).eq("archivado",false);
+  else if(sec==="veh")q=db.from("registros").update({archivado:true}).lt("created_at",lim).not("fecha_devolucion","is",null).eq("archivado",false);
+  else if(sec==="herr")q=db.from("herramientas_mov").update({archivado:true}).lt("created_at",lim).eq("archivado",false);
+  else q=db.from("epi_solicitudes").update({archivado:true}).lt("created_at",lim).in("estado",["firmado","rechazado"]).eq("archivado",false);
+  const r=await q.select("id");btn.disabled=false;
+  if(r.error){btn.textContent="Error: "+r.error.message;return;}
+  const n=(r.data||[]).length;
+  if(sec==="fic")aFic();else if(sec==="veh")aVeh();else if(sec==="herr")aHerr();else{await refreshAEpi();aESet("doc");}
+  setTimeout(()=>{const m=$("#hOk")||$("#eOk")||$("#vacOk");if(m){m.textContent="🗄 "+n+" registros archivados.";m.style.display="block";setTimeout(()=>m.style.display="none",3000);}},800);
+}
+window.archivar=archivar;
+
+/* INFORMES MENSUALES (PDF / Excel) */
+const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+function mesAnterior(){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");}
+function fDia(ts){return ts?new Date(ts).toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}):"";}
+function fHora(ts){return ts?new Date(ts).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}):"";}
+function fDur(ms){if(!ms||ms<0)return "";const m=Math.round(ms/60000);return Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m";}
+function aInf(){
+  const lim=adminRol==="herr";const ma=mesAnterior();const [y,m]=ma.split("-");
+  $("#app").innerHTML=`<div class="card"><h2>Informe mensual</h2><p class="hint">Por defecto sale el <b>mes anterior (${MESES[+m-1]} ${y})</b>, listo para imprimir o descargar. Incluye también lo archivado.</p><label>Mes</label><input type="month" id="infMes" value="${ma}" onchange="cargarInf()"><div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">${lim?'':'<label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infFic" checked style="width:auto" onchange="pintarInf()"> Fichajes y vacaciones</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infVeh" checked style="width:auto" onchange="pintarInf()"> Vehículos</label>'}<label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infHerr" checked style="width:auto" onchange="pintarInf()"> Herramientas</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infEpi" checked style="width:auto" onchange="pintarInf()"> EPIs</label></div><div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="imprimirInf()">🖨 PDF / Imprimir</button><button class="rowbtn grn" style="flex:1" onclick="excelInf()">📥 Excel</button></div><div id="infMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><div id="infPrev" class="rep repwrap"><p class="empty">Cargando…</p></div></div>`;
+  cargarInf();
+}
+window.aInf=aInf;
+async function cargarInf(){
+  const v=$("#infMes")?.value;if(!v)return;const [y,m]=v.split("-").map(Number);
+  const ini=new Date(y,m-1,1),fin=new Date(y,m,1);const a=ini.toISOString(),b=fin.toISOString();
+  const dIni=v+"-01",dFin=fin.getFullYear()+"-"+String(fin.getMonth()+1).padStart(2,"0")+"-01";
+  $("#infPrev").innerHTML='<p class="empty">Cargando…</p>';
+  const lim=adminRol==="herr";
+  const [fic,veh,mov,e1,e2,vac,hs,ep]=await Promise.all([
+    lim?{data:[]}:db.from("fichajes").select("*").gte("created_at",a).lt("created_at",b).order("created_at"),
+    lim?{data:[]}:db.from("registros").select("*").gte("created_at",a).lt("created_at",b).order("created_at"),
+    db.from("herramientas_mov").select("*").gte("created_at",a).lt("created_at",b).order("created_at"),
+    db.from("epi_solicitudes").select("id,epi_id,trabajador_id,cantidad,talla,estado,nota,fecha_solicitud,fecha_entrega,fecha_firma,created_at").gte("created_at",a).lt("created_at",b),
+    db.from("epi_solicitudes").select("id,epi_id,trabajador_id,cantidad,talla,estado,nota,fecha_solicitud,fecha_entrega,fecha_firma,created_at").gte("fecha_entrega",a).lt("fecha_entrega",b),
+    lim?{data:[]}:db.from("vacaciones").select("*").eq("estado","aprobada").lt("fecha_inicio",dFin).gte("fecha_fin",dIni).order("fecha_inicio"),
+    db.from("herramientas").select("id,nombre,codigo"),
+    db.from("epis").select("id,nombre")
+  ]);
+  const err=[fic,veh,mov,e1,e2,vac,hs,ep].find(r=>r&&r.error);if(err){$("#infPrev").innerHTML='<p class="empty">'+esc(err.error.message)+'</p>';return;}
+  const hm={};(hs.data||[]).forEach(h=>hm[h.id]=h.nombre+(h.codigo?" ("+h.codigo+")":""));
+  const em={};(ep.data||[]).forEach(x=>em[x.id]=x.nombre);
+  const epiU={};[...(e1.data||[]),...(e2.data||[])].forEach(x=>epiU[x.id]=x);
+  window._inf={mes:v,titulo:MESES[m-1]+" "+y,fic:fic.data||[],veh:veh.data||[],mov:mov.data||[],epi:Object.values(epiU).sort((p,q)=>String(p.created_at).localeCompare(String(q.created_at))),vac:vac.data||[],hm,em};
+  pintarInf();
+}
+window.cargarInf=cargarInf;
+function infFichajes(fic){
+  const por={};fic.forEach(f=>{(por[f.trabajador_id]=por[f.trabajador_id]||[]).push(f);});
+  const res=[],det=[];
+  Object.keys(por).sort((x,y)=>(condMap[x]||"").localeCompare(condMap[y]||"")).forEach(tid=>{
+    const n=condMap[tid]||("#"+tid);const list=por[tid];const dias={};
+    list.forEach(f=>{const k=fDia(f.created_at);(dias[k]=dias[k]||[]).push(f);});
+    let tot=0,inc=0;
+    Object.keys(dias).forEach(k=>{
+      const l=dias[k];let i=0;
+      while(i<l.length){const f=l[i];
+        if(f.tipo==="entrada"){const s=l[i+1]&&l[i+1].tipo==="salida"?l[i+1]:null;const ms=s?new Date(s.created_at)-new Date(f.created_at):0;if(s)tot+=ms;else inc++;
+          det.push([n,k,fHora(f.created_at),s?fHora(s.created_at):"—",s?fDur(ms):"incompleto",[f.lugar,s&&s.lugar].filter(Boolean).join(" / ")]);i+=s?2:1;}
+        else{inc++;det.push([n,k,"—",fHora(f.created_at),"incompleto",f.lugar||""]);i++;}
+      }
+    });
+    res.push([n,Object.keys(dias).length,fDur(tot)||"0h 00m",inc]);
+  });
+  return {res,det};
+}
+function infDatos(){
+  const d=window._inf;if(!d)return null;
+  const on=id=>{const c=$("#"+id);return c?c.checked:false;};
+  const nomE=s=>s.epi_id?(d.em[s.epi_id]||"EPI #"+s.epi_id):(s.nota||"Solicitud especial");
+  const out={titulo:d.titulo,mes:d.mes,sec:[]};
+  if(on("infFic")){const F=infFichajes(d.fic);
+    out.sec.push({t:"Fichajes · resumen por trabajador",h:["Trabajador","Días con fichaje","Horas trabajadas","Fichajes incompletos"],r:F.res});
+    out.sec.push({t:"Fichajes · detalle",h:["Trabajador","Fecha","Entrada","Salida","Horas","Lugar"],r:F.det});
+    out.sec.push({t:"Vacaciones aprobadas",h:["Trabajador","Desde","Hasta","Días"],r:d.vac.map(v=>[condMap[v.trabajador_id]||"#"+v.trabajador_id,fDia(v.fecha_inicio+"T12:00:00"),fDia(v.fecha_fin+"T12:00:00"),v.dias])});}
+  if(on("infVeh"))out.sec.push({t:"Vehículos",h:["Conductor","Vehículo","Matrícula","Cogido","Devuelto","Duración"],r:d.veh.map(r=>{const v=vehMap[r.vehiculo_id];return [condMap[r.conductor_id]||"#"+r.conductor_id,v?up(v.nombre):"#"+r.vehiculo_id,v?up(v.matricula):"",fmt(r.created_at),r.fecha_devolucion?fmt(r.fecha_devolucion):"Sin devolver",r.fecha_devolucion?fDur(new Date(r.fecha_devolucion)-new Date(r.created_at)):""];})});
+  if(on("infHerr"))out.sec.push({t:"Herramientas · movimientos",h:["Fecha","Herramienta","Movimiento","Trabajador","Obra","Nota"],r:d.mov.map(x=>[fmt(x.created_at),d.hm[x.herramienta_id]||x.herramienta_nombre||"#"+x.herramienta_id,movLabel(x.tipo),condMap[x.trabajador_id]||"—",x.obra||"",x.nota||""])});
+  if(on("infEpi"))out.sec.push({t:"EPIs y ropa",h:["Trabajador","Artículo","Talla","Uds","Estado","Solicitado","Entregado","Firmado"],r:d.epi.map(s=>[condMap[s.trabajador_id]||"#"+s.trabajador_id,nomE(s),s.talla||"",s.cantidad||1,s.estado,fDia(s.fecha_solicitud||s.created_at),fDia(s.fecha_entrega),fDia(s.fecha_firma)])});
+  return out;
+}
+function infHTML(o){
+  return `<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:4px solid #e2680f;padding-bottom:6px"><div><div style="font-size:22px;font-weight:900">AZERO</div><div style="font-size:11px;letter-spacing:1px;color:#6b6862">CONTROL INTERNO</div></div><div style="text-align:right"><div style="font-size:16px;font-weight:800">Informe mensual · ${esc(o.titulo)}</div><div style="font-size:11px;color:#6b6862">Generado el ${fmt(new Date().toISOString())}</div></div></div>`+
+  o.sec.map(s=>`<h3>${esc(s.t)} (${s.r.length})</h3>`+(s.r.length?`<table><thead><tr>${s.h.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${s.r.map(r=>`<tr>${r.map(c=>`<td>${esc(String(c??""))}</td>`).join("")}</tr>`).join("")}</tbody></table>`:'<p class="hint">Sin registros este mes.</p>')).join("");
+}
+function pintarInf(){const o=infDatos();if(!o)return;const el=$("#infPrev");if(el)el.innerHTML=infHTML(o);}
+window.pintarInf=pintarInf;
+function imprimirInf(){
+  const o=infDatos();if(!o)return;
+  let pa=$("#printArea");if(!pa){pa=document.createElement("div");pa.id="printArea";document.body.appendChild(pa);}
+  pa.innerHTML='<div class="rep" style="padding:10px">'+infHTML(o)+'</div>';
+  document.body.classList.add("printing");const t=document.title;document.title="AZERO-informe-"+o.mes;
+  const fin=()=>{document.body.classList.remove("printing");document.title=t;window.removeEventListener("afterprint",fin);};
+  window.addEventListener("afterprint",fin);setTimeout(()=>{try{window.print();}catch(e){fin();}},100);
+}
+window.imprimirInf=imprimirInf;
+function cargarXLSX(){return new Promise((ok,ko)=>{if(window.XLSX)return ok();const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";s.onload=()=>ok();s.onerror=()=>ko(new Error("No se pudo cargar el generador de Excel"));document.head.appendChild(s);});}
+async function excelInf(){
+  const o=infDatos();if(!o)return;const m=$("#infMsg");
+  try{if(m)m.textContent="Preparando Excel…";await cargarXLSX();
+    const wb=XLSX.utils.book_new();const usados={};
+    o.sec.forEach(s=>{let n=s.t.replace(/[\\\/\?\*\[\]:]/g,"").replace(" · "," - ").slice(0,31);while(usados[n])n=n.slice(0,29)+"_"+(usados[n]++);usados[n]=1;
+      const ws=XLSX.utils.aoa_to_sheet([[ "AZERO · Informe "+o.titulo+" · "+s.t],[],s.h,...s.r]);ws["!cols"]=s.h.map(()=>({wch:20}));XLSX.utils.book_append_sheet(wb,ws,n);});
+    XLSX.writeFile(wb,"AZERO-informe-"+o.mes+".xlsx");if(m)m.textContent="✅ Excel descargado.";
+  }catch(e){if(m)m.textContent="Error: "+e.message;}
+}
+window.excelInf=excelInf;
 
 /* GLOBOS DE NOTIFICACION (solicitudes pendientes) */
 let _bc={herr:0,epi:0,veh:0};
