@@ -401,7 +401,7 @@ async function pHerr(){
   $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs">${subtabs}</div>${obraSel}<input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
   await refreshHerr();hSet(g&&(window._hsol||[]).some(s=>s.estado==="pendiente")?"solicitudes":"almacen");
 }
-function hSet(s){hSub=s;repairId=null;hDetail=null;hFam=null;hReqTipo=null;const map={almacen:"ha",obra:"ho",reparacion:"hr",solicitudes:"hsol",missol:"hms"};["ha","ho","hr","hsol","hms"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
+function hSet(s){hSub=s;repairId=null;hObra=null;moveId=null;hDetail=null;hFam=null;hReqTipo=null;const map={almacen:"ha",obra:"ho",reparacion:"hr",solicitudes:"hsol",missol:"hms"};["ha","ho","hr","hsol","hms"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
 window.hSet=hSet;
 function setRepair(id){repairId=id;renderHerr();}
 window.setRepair=setRepair;
@@ -414,7 +414,7 @@ window.backToFam=backToFam;
 function backToTipos(){hDetail=null;repairId=null;renderHerr();}
 window.backToTipos=backToTipos;
 function backBar(label,fn){return `<button class="backbar" onclick="${fn}"><span class="ar">‹</span> ${esc(up(label))}</button>`;}
-function unitRow(h){let a="";if(repairId===h.id){a=repairForm(h.id);}else if(h.estado==="disponible"){a=`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="en_uso"){const mine=h.responsable_id===worker.id?" (tú)":"";a=`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="reparacion"){a=`<div class="d">🔧 En reparación${h.nota_reparacion?" — "+esc(h.nota_reparacion):""}</div>`;}else{a='<div class="d">Dada de baja</div>';}return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${a}</div>`;}
+function unitRow(h){let a="";if(repairId===h.id){a=repairForm(h.id);}else if(h.estado==="disponible"){a=`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="en_uso"){const mine=h.responsable_id===worker.id?" (tú)":"";a=`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>${moveId===h.id?moveForm(h.id):`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn blue" style="flex:1" onclick="setMove(${h.id})">Cambiar obra</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}`;}else if(h.estado==="reparacion"){a=`<div class="d">🔧 En reparación${h.nota_reparacion?" — "+esc(h.nota_reparacion):""}</div>`;}else{a='<div class="d">Dada de baja</div>';}return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${a}</div>`;}
 async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data;
   try{
     if(esGestor()){const s=await db.from("herramienta_solicitudes").select("*").order("created_at",{ascending:false}).limit(200);window._hsol=s.error?[]:s.data;}
@@ -511,8 +511,11 @@ function renderHerr(){applyBadges();
   }else if(hSub==="obra"){
     const list=herrList.filter(h=>h.estado==="en_uso").filter(match);
     if(!list.length){body.innerHTML='<p class="empty">No hay herramientas en obra ahora mismo.</p>';return;}
-    const g={};list.forEach(h=>{const k=h.obra_actual||"Sin obra / Taller";(g[k]=g[k]||[]).push(h);});
-    body.innerHTML=Object.keys(g).sort().map(o=>`<p class="count">${esc(o)}</p>`+g[o].map(h=>{const mine=h.responsable_id===worker.id?" (tú)":"";return `<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div>${hMeta(h)}<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}</div>${repairId===h.id?repairForm(h.id):`<div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}</div>`;}).join("")).join("");
+    const g=agruparObra(list);
+    const fila=h=>{const mine=h.responsable_id===worker.id?" (tú)":"";return `<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div>${hMeta(h)}<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${q?" · "+esc(h.obra_actual||""):""}</div>${repairId===h.id?repairForm(h.id):moveId===h.id?moveForm(h.id):`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn blue" style="flex:1" onclick="setMove(${h.id})">Cambiar obra</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}</div>`;};
+    if(q){body.innerHTML=`<p class="count">${list.length} resultado${list.length!==1?"s":""}</p>`+list.map(fila).join("");}
+    else if(!hObra||!g[hObra]){hObra=null;body.innerHTML=obraTiles(g);}
+    else{body.innerHTML=backBar("Volver a obras","backToObras()")+`<div class="crumb">${esc(up(hObra))} · ${g[hObra].length} herramienta${g[hObra].length!==1?"s":""}</div>`+ordenHerr(g[hObra]).map(fila).join("");}
   }else{
     const list=herrList.filter(h=>h.estado==="reparacion").filter(match);
     body.innerHTML=list.length?(`<p class="count">${list.length} en reparación</p>`+list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div>${hMeta(h)}${h.nota_reparacion?`<div class="d">⚠️ ${esc(h.nota_reparacion)}</div>`:""}<div class="d">Reportada por: ${esc(condMap[h.responsable_id]||"—")}</div></div>`).join("")):'<p class="empty">No hay herramientas en reparación.</p>';
@@ -520,6 +523,28 @@ function renderHerr(){applyBadges();
 }
 async function cogerHerr(id){const obra=($("#obra")?.value||"").trim();if(!obra){flashInput("obra");return msg("#hErr","Selecciona una obra (o Taller) antes de coger la herramienta.",true);}const r1=await db.from("herramientas").update({estado:"en_uso",responsable_id:worker.id,obra_actual:obra}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"coger",obra});const os=$("#obra");if(os)os.value="";msg("#hOk","✅ Herramienta cogida para "+obra+".");await refreshHerr();}
 window.cogerHerr=cogerHerr;
+/* OBRAS como botones + CAMBIO DE OBRA */
+let hObra=null,aObra=null,moveId=null;
+function agruparObra(list){const g={};list.forEach(h=>{const k=h.obra_actual||"Sin obra";(g[k]=g[k]||[]).push(h);});return g;}
+function ordenHerr(l){return l.slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||"")||(a.codigo||"").localeCompare(b.codigo||""));}
+function obraTiles(g){const ks=Object.keys(g).sort();const tot=ks.reduce((n,k)=>n+g[k].length,0);return `<p class="count">${ks.length} obra${ks.length!==1?"s":""} con herramientas · ${tot} en total</p><div class="tilegrid">`+ks.map(o=>`<button class="tile" onclick="openObra('${encodeURIComponent(o)}')"><div class="tn">${esc(up(o))}</div><div class="tc">${g[o].length} herram.</div></button>`).join("")+`</div>`;}
+function openObra(enc){const o=decodeURIComponent(enc);moveId=null;if(worker){hObra=o;repairId=null;renderHerr();}else{aObra=o;rInv();}}
+window.openObra=openObra;
+function backToObras(){moveId=null;if(worker){hObra=null;repairId=null;renderHerr();}else{aObra=null;rInv();}}
+window.backToObras=backToObras;
+function setMove(id){moveId=id;if(worker){repairId=null;renderHerr();}else rInv();}
+window.setMove=setMove;
+function moveForm(id){return `<div style="margin-top:9px"><select id="mv${id}" style="font-size:14px;padding:11px"><option value="">— Elige la nueva obra —</option><option value="Taller">Taller</option>${obraOpts()}</select><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setMove(null)">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="cambiarObra(${id})">Mover a esa obra</button></div></div>`;}
+async function cambiarObra(id){
+  const o=($("#mv"+id)?.value||"").trim();if(!o){flashInput("mv"+id);return msg("#hErr","Elige la obra a la que pasa la herramienta.",true);}
+  const h=(worker?herrList:(window._inv||[])).find(x=>x.id===id);const antes=h?(h.obra_actual||"—"):"—";
+  if(o===antes){moveId=null;return msg("#hErr","La herramienta ya está en esa obra.",true);}
+  const upd={obra_actual:o};if(worker)upd.responsable_id=worker.id;
+  const r=await db.from("herramientas").update(upd).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);
+  await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker?worker.id:null,tipo:"cambio_obra",obra:o,nota:"Desde "+antes});
+  moveId=null;msg("#hOk","🔁 Movida a "+o+".");if(worker)await refreshHerr();else await refreshInv();
+}
+window.cambiarObra=cambiarObra;
 async function devolverHerr(id){const r1=await db.from("herramientas").update({estado:"disponible",responsable_id:null,obra_actual:null}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"devolver"});msg("#hOk","✅ Herramienta devuelta.");await refreshHerr();}
 window.devolverHerr=devolverHerr;
 async function reportAveria(id){const nota=($("#rep"+id)?.value||"").trim();if(!nota){flashInput("rep"+id);return msg("#hErr","Explica el motivo del fallo antes de enviar a reparación.",true);}const r1=await db.from("herramientas").update({estado:"reparacion",responsable_id:worker.id,obra_actual:null,nota_reparacion:nota}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"averia",nota});repairId=null;msg("#hOk","🔧 Enviada a reparación. Avisado el administrador.");await refreshHerr();}
@@ -708,9 +733,9 @@ async function aHerr(){
   const m=mov.error?[]:mov.data;
   $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||x.herramienta_nombre||"herr #"+x.herramienta_id))} — ${movLabel(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}${x.nota?" · "+esc(x.nota):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
 }
-function aHSet(s){aHSub=s;admRepairId=null;invReset();const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib",sol:"is"};["ia","io","ir","ib","is"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
+function aHSet(s){aHSub=s;admRepairId=null;aObra=null;moveId=null;invReset();const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib",sol:"is"};["ia","io","ir","ib","is"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
 window.aHSet=aHSet;
-function movLabel(t){return t==="coger"?"Cogida":t==="devolver"?"Devuelta":t==="averia"?"Enviada a reparación":t==="reparada"?"Reparada":t==="baja"?"Dada de baja":esc(t);}
+function movLabel(t){return t==="coger"?"Cogida":t==="devolver"?"Devuelta":t==="averia"?"Enviada a reparación":t==="reparada"?"Reparada":t==="baja"?"Dada de baja":t==="cambio_obra"?"Cambio de obra":esc(t);}
 async function refreshInv(){const inv=await db.from("herramientas").select("*").order("nombre");window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);rInv();}
 window.refreshInv=refreshInv;
 async function loadASol(){const s=await db.from("herramienta_solicitudes").select("*").order("created_at",{ascending:false}).limit(200);window._asol=s.error?[]:s.data;}
@@ -750,8 +775,11 @@ function rInv(){applyBadges();
   }else if(aHSub==="obra"){
     list=list.filter(h=>h.estado==="en_uso");
     if(!list.length){body.innerHTML='<p class="empty">Ninguna herramienta en obra.</p>';return;}
-    const g={};list.forEach(h=>{const k=h.obra_actual||"Sin obra / Taller";(g[k]=g[k]||[]).push(h);});
-    body.innerHTML=Object.keys(g).sort().map(o=>`<p class="count">${esc(o)}</p>`+g[o].map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div><div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}</div><button class="rowbtn grn" onclick="admDevolver(${h.id})">Devolver al almacén</button></div>`).join("")).join("");
+    const g=agruparObra(list);
+    const fila=h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div><div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${q?" · "+esc(h.obra_actual||""):""}</div>${moveId===h.id?moveForm(h.id):`<div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="admDevolver(${h.id})">Devolver al almacén</button><button class="rowbtn blue" style="flex:1" onclick="setMove(${h.id})">Cambiar obra</button></div>`}</div>`;
+    if(q){body.innerHTML=`<p class="count">${list.length} resultado${list.length!==1?"s":""}</p>`+list.map(fila).join("");}
+    else if(!aObra||!g[aObra]){aObra=null;body.innerHTML=obraTiles(g);}
+    else{body.innerHTML=backBar("Volver a obras","backToObras()")+`<div class="crumb">${esc(up(aObra))} · ${g[aObra].length} herramienta${g[aObra].length!==1?"s":""}</div>`+ordenHerr(g[aObra]).map(fila).join("");}
   }else if(aHSub==="reparacion"){
     list=list.filter(h=>h.estado==="reparacion");
     body.innerHTML=`<p class="count">${list.length} en reparación</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div>${h.nota_reparacion?`<div class="d">⚠️ ${esc(h.nota_reparacion)}</div>`:""}<div class="d">Reportada por: ${esc(condMap[h.responsable_id]||"—")}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="admReparada(${h.id})">Marcar reparada</button><button class="rowbtn" style="flex:1" onclick="admBaja(${h.id})">Dar de baja</button></div></div>`).join(""):'<p class="empty">Nada en reparación.</p>');
