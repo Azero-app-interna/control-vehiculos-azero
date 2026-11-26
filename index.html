@@ -59,6 +59,8 @@ button:disabled{opacity:.5}
 .b-ok{background:#e6f2ea;color:var(--green)}
 .b-use{background:#fdeede;color:var(--amber)}
 .b-rep{background:#fdeded;color:var(--red)}
+.b-alq{background:#e8eefc;color:#2b55c4}
+.b-venc{background:#d93025;color:#fff}
 .b-in{background:#177245;color:#fff}
 .b-out{background:#c0392b;color:#fff}
 .b-veh{background:#eef1f5;color:#1f2328}
@@ -422,13 +424,13 @@ function backToTipos(){hDetail=null;repairId=null;renderHerr();}
 window.backToTipos=backToTipos;
 function backBar(label,fn){return `<button class="backbar" onclick="${fn}"><span class="ar">‹</span> ${esc(up(label))}</button>`;}
 function unitRow(h){let a="";if(repairId===h.id){a=repairForm(h.id);}else if(h.estado==="disponible"){a=`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="en_uso"){const mine=h.responsable_id===worker.id?" (tú)":"";a=`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>${moveId===h.id?moveForm(h.id):`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn blue" style="flex:1" onclick="setMove(${h.id})">Cambiar obra</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}`;}else if(h.estado==="reparacion"){a=`<div class="d">🔧 En reparación${h.nota_reparacion?" — "+esc(h.nota_reparacion):""}</div>`;}else{a='<div class="d">Dada de baja</div>';}return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${herrInfo(h)}${a}</div>`;}
-async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data;
+async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data.filter(h=>h.estado!=="devuelto_prov");
   try{
     if(esGestor()){const s=await db.from("herramienta_solicitudes").select("*").order("created_at",{ascending:false}).limit(200);window._hsol=s.error?[]:s.data;}
     else{const s=await db.from("herramienta_solicitudes").select("*").eq("trabajador_id",worker.id).order("created_at",{ascending:false}).limit(100);misSol=s.error?[]:s.data;}
   }catch(e){}
   renderHerr();}
-function estBadge(e){return e==="disponible"?'<span class="badge b-ok">Disponible</span>':e==="en_uso"?'<span class="badge b-use">En uso</span>':e==="reparacion"?'<span class="badge b-rep">Reparación</span>':'<span class="badge b-rep">Baja</span>';}
+function estBadge(e){return e==="disponible"?'<span class="badge b-ok">Disponible</span>':e==="en_uso"?'<span class="badge b-use">En uso</span>':e==="reparacion"?'<span class="badge b-rep">Reparación</span>':e==="devuelto_prov"?'<span class="badge b-alq">Devuelta a proveedor</span>':'<span class="badge b-rep">Baja</span>';}
 function hMeta(h){return `<div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>`+herrInfo(h);}
 function repairForm(id){return `<div style="margin-top:9px"><input id="rep${id}" placeholder="Motivo del fallo (obligatorio, ej. no arranca)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="reportAveria(${id})">Enviar a reparación</button></div></div>`;}
 function unitRowView(h){
@@ -536,8 +538,9 @@ function herrInfo(h){
   const foto=h.foto_url?`<img class="hthumb" src="${esc(h.foto_url)}" alt="foto" loading="lazy" onclick="verFoto(this.src)">`:"";
   const sn=priv?(h.num_serie?`<span class="sn">Nº SERIE ${esc(h.num_serie)}</span>`:`<span class="sn none">Sin nº de serie</span>`):"";
   const btn=priv?`<button class="rowbtn" style="margin-top:4px;padding:7px 10px" onclick="pedirFoto(${h.id})">📷 ${h.foto_url?"Cambiar foto":"Subir foto"}</button>`:"";
-  if(!foto&&!sn&&!btn)return "";
-  return `<div class="hinfo">${foto}<div class="hinfo-r">${sn}${btn}</div></div>`;
+  const alq=priv&&h.alquilada&&h.estado!=="devuelto_prov"?alqBadge(h):"";
+  if(!foto&&!sn&&!btn&&!alq)return "";
+  return `<div class="hinfo">${foto}<div class="hinfo-r">${alq}${sn}${btn}</div></div>`;
 }
 function verFoto(u){const d=document.createElement("div");d.id="fotoView";d.innerHTML=`<img src="${esc(u)}" alt="foto">`;d.onclick=()=>d.remove();document.body.appendChild(d);}
 window.verFoto=verFoto;
@@ -555,6 +558,43 @@ async function subirFoto(i){
     msg("#hOk","✅ Foto guardada.");if(worker)await refreshHerr();else await refreshInv();
   }catch(e){msg("#hErr","No se pudo subir la foto: "+(e.message||e),true);}
 }
+
+/* MAQUINARIA ALQUILADA */
+let alqEditId=null;
+function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function diasHasta(f){if(!f)return null;const a=new Date();a.setHours(0,0,0,0);return Math.round((new Date(f+"T00:00:00")-a)/86400000);}
+function fCorta(f){return f?new Date(f+"T12:00:00").toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"2-digit"}):"";}
+function alqBadge(h){const d=diasHasta(h.alquiler_fin);const cls=d===null?"b-alq":d<0?"b-venc":d<=2?"b-use":"b-alq";return `<span class="badge ${cls}" style="margin-left:0">Alquilada${h.proveedor?" · "+esc(h.proveedor):""}${h.alquiler_fin?" · hasta "+fCorta(h.alquiler_fin):""}${d!==null&&d<0?" · VENCIDA":d!==null&&d<=2?" · vence pronto":""}</span>`;}
+function alqCampos(p,x,h){const i=(n,ph,v,t)=>`<input id="${p}${n}${x}" ${t?'type="'+t+'"':""} placeholder="${ph}" value="${esc(v==null?"":String(v))}" style="flex:1;min-width:130px;font-size:14px;padding:10px">`;
+  return `<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">${i("Prov","Proveedor (empresa de alquiler)",h.proveedor)}${i("Tel","Teléfono proveedor",h.proveedor_tel,"tel")}</div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">${i("Ref","Nº contrato / albarán",h.contrato_ref)}${i("Pre","Precio por día (€)",h.precio_dia,"number")}</div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center"><span class="d" style="width:100%">Desde · Hasta (fecha prevista de devolución)</span>${i("Ini","Inicio",h.alquiler_inicio||hoyISO(),"date")}${i("Fin","Fin previsto",h.alquiler_fin,"date")}</div>`;}
+function alqDatos(p,x){const c=$("#"+p+"Alq"+x);if(!c)return {};if(!c.checked)return {alquilada:false};const g=n=>($("#"+p+n+x)?.value||"").trim();const pr=g("Pre");return {alquilada:true,proveedor:g("Prov")||null,proveedor_tel:g("Tel")||null,contrato_ref:g("Ref")||null,alquiler_inicio:g("Ini")||hoyISO(),alquiler_fin:g("Fin")||null,precio_dia:pr?Number(pr.replace(",",".")):null};}
+function alqDias(h){if(!h.alquiler_inicio)return 0;const fin=h.alquiler_devuelto_at?new Date(h.alquiler_devuelto_at):new Date();return Math.max(1,Math.floor((new Date(fin.toDateString())-new Date(h.alquiler_inicio+"T00:00:00"))/86400000)+1);}
+function renderAlq(body){
+  const all=window._invAll||[];
+  const act=all.filter(h=>h.alquilada&&h.estado!=="devuelto_prov").sort((a,b)=>(a.alquiler_fin||"9999").localeCompare(b.alquiler_fin||"9999"));
+  const hist=all.filter(h=>h.alquilada&&h.estado==="devuelto_prov").sort((a,b)=>String(b.alquiler_devuelto_at).localeCompare(String(a.alquiler_devuelto_at)));
+  const coste=h=>h.precio_dia!=null?" · ≈ "+(Number(h.precio_dia)*alqDias(h)).toFixed(2)+" € ("+Number(h.precio_dia).toFixed(2)+" €/día)":"";
+  const fila=h=>{let foot;
+    if(alqEditId===h.id)foot=`<div class="archbox"><span>Nueva fecha de devolución</span><input type="date" id="alqf${h.id}" value="${esc(h.alquiler_fin||"")}"><button class="rowbtn blue" onclick="ampliarAlq(${h.id})">Guardar</button><button class="rowbtn" onclick="setAlqEdit(null)">Cancelar</button></div>`;
+    else foot=`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="rowbtn" style="flex:1" onclick="setAlqEdit(${h.id})">📅 Ampliar fecha</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="devolverProv(${h.id},this)">↩ Devolver al proveedor</button></div>`;
+    return `<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.num_serie?" · nº "+esc(h.num_serie):""}</div><div style="margin-top:4px">${alqBadge(h)}</div><div class="d">Proveedor: <b>${esc(h.proveedor||"—")}</b>${h.proveedor_tel?` · <a href="tel:${esc(h.proveedor_tel)}">${esc(h.proveedor_tel)}</a>`:""}${h.contrato_ref?" · Contrato "+esc(h.contrato_ref):""}</div><div class="d">Desde ${fCorta(h.alquiler_inicio)||"—"} · ${alqDias(h)} días${coste(h)}</div>${h.estado==="en_uso"?`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>`:""}${foot}</div>`;};
+  let html=`<p class="hint">Para dar de alta una máquina alquilada: <b>Inventario → ➕ Añadir herramienta</b> y marca "Es maquinaria alquilada". Se coge, se mueve de obra y se devuelve como cualquier herramienta.</p><p class="count">En alquiler ahora (${act.length})</p>`+(act.length?act.map(fila).join(""):'<p class="empty">No hay maquinaria alquilada ahora mismo.</p>');
+  if(hist.length)html+=`<button class="rowbtn" style="width:100%;margin-top:12px" onclick="togHist('alqhist',this,'📋 Ver alquileres devueltos (${hist.length})')">📋 Ver alquileres devueltos (${hist.length})</button><div id="alqhist" style="display:none;margin-top:8px">`+hist.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="d">${esc(h.proveedor||"—")}${h.contrato_ref?" · Contrato "+esc(h.contrato_ref):""}</div><div class="d">${fCorta(h.alquiler_inicio)} → devuelta ${fmt(h.alquiler_devuelto_at)} · ${alqDias(h)} días${coste(h)}</div></div>`).join("")+`</div>`;
+  body.innerHTML=html;
+}
+function setAlqEdit(id){alqEditId=id;rInv();}
+window.setAlqEdit=setAlqEdit;
+async function ampliarAlq(id){const f=$("#alqf"+id)?.value;if(!f){flashInput("alqf"+id);return;}const r=await db.from("herramientas").update({alquiler_fin:f}).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);alqEditId=null;msg("#hOk","📅 Fecha de devolución actualizada.");await refreshInv();}
+window.ampliarAlq=ampliarAlq;
+async function devolverProv(id,btn){
+  if(!btn.dataset.ok){btn.dataset.ok="1";btn.textContent="¿Seguro? Pulsa otra vez";setTimeout(()=>{btn.dataset.ok="";btn.textContent="↩ Devolver al proveedor";},5000);return;}
+  btn.disabled=true;const h=(window._invAll||[]).find(x=>x.id===id);
+  const r=await db.from("herramientas").update({estado:"devuelto_prov",alquiler_devuelto_at:new Date().toISOString(),responsable_id:null,obra_actual:null}).eq("id",id);
+  if(r.error){btn.disabled=false;return msg("#hErr",r.error.message,true);}
+  await db.from("herramientas_mov").insert({herramienta_id:id,tipo:"devuelta_proveedor",nota:h&&h.proveedor?"Proveedor: "+h.proveedor:null});
+  msg("#hOk","↩ Devuelta al proveedor. Queda en el histórico de alquileres.");await refreshInv();
+}
+window.devolverProv=devolverProv;
 
 /* OBRAS como botones + CAMBIO DE OBRA */
 let hObra=null,aObra=null,moveId=null;
@@ -760,16 +800,16 @@ function setAdmRepair(id){admRepairId=id;rInv();}
 window.setAdmRepair=setAdmRepair;
 function admRepairForm(id){return `<div style="margin-top:9px"><input id="arep${id}" placeholder="Motivo del fallo (obligatorio)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setAdmRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="admAveria(${id})">Enviar a reparación</button></div></div>`;}
 async function aHerr(){
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta o nº serie" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><button class="rowbtn" style="width:100%" onclick="togHist('amovw',this,'📋 Ver auditoría de movimientos')">📋 Ver auditoría de movimientos</button><div id="amovw" style="display:none;margin-top:10px">${archBox('herr')}<div id="amov"><p class="empty">Cargando…</p></div></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta o nº serie" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button><button id="ial" onclick="aHSet('alq')">Alquiler</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><button class="rowbtn" style="width:100%" onclick="togHist('amovw',this,'📋 Ver auditoría de movimientos')">📋 Ver auditoría de movimientos</button><div id="amovw" style="display:none;margin-top:10px">${archBox('herr')}<div id="amov"><p class="empty">Cargando…</p></div></div></div>`;
   const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("*").eq("archivado",false).order("created_at",{ascending:false}).limit(200)]);
-  window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);await loadASol();aHSet(_bc.herr>0?"sol":"almacen");
+  window._invAll=inv.error?[]:inv.data;window._inv=window._invAll.filter(h=>h.estado!=="devuelto_prov");window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);await loadASol();aHSet(_bc.herr>0?"sol":"almacen");
   const m=mov.error?[]:mov.data;
   $("#amov").innerHTML=m.length?m.map(x=>`<div class="row"><div class="t">${esc(up(window._hmap[x.herramienta_id]||x.herramienta_nombre||"herr #"+x.herramienta_id))} — ${movLabel(x.tipo)}</div><div class="m">${esc(condMap[x.trabajador_id]||"—")}${x.obra?" · "+esc(x.obra):""}${x.nota?" · "+esc(x.nota):""}</div><div class="d">${fmt(x.created_at)}</div></div>`).join(""):'<p class="empty">Sin movimientos todavía.</p>';
 }
-function aHSet(s){aHSub=s;admRepairId=null;aObra=null;moveId=null;invReset();const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib",sol:"is"};["ia","io","ir","ib","is"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
+function aHSet(s){aHSub=s;admRepairId=null;aObra=null;moveId=null;invReset();const map={almacen:"ia",obra:"io",reparacion:"ir",baja:"ib",sol:"is",alq:"ial"};["ia","io","ir","ib","is","ial"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});rInv();}
 window.aHSet=aHSet;
-function movLabel(t){return t==="coger"?"Cogida":t==="devolver"?"Devuelta":t==="averia"?"Enviada a reparación":t==="reparada"?"Reparada":t==="baja"?"Dada de baja":t==="cambio_obra"?"Cambio de obra":esc(t);}
-async function refreshInv(){const inv=await db.from("herramientas").select("*").order("nombre");window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);rInv();}
+function movLabel(t){return t==="coger"?"Cogida":t==="devolver"?"Devuelta":t==="averia"?"Enviada a reparación":t==="reparada"?"Reparada":t==="baja"?"Dada de baja":t==="cambio_obra"?"Cambio de obra":t==="devuelta_proveedor"?"Devuelta al proveedor":esc(t);}
+async function refreshInv(){const inv=await db.from("herramientas").select("*").order("nombre");window._invAll=inv.error?[]:inv.data;window._inv=window._invAll.filter(h=>h.estado!=="devuelto_prov");window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);rInv();}
 window.refreshInv=refreshInv;
 async function loadASol(){const s=await db.from("herramienta_solicitudes").select("*").order("created_at",{ascending:false}).limit(200);window._asol=s.error?[]:s.data;}
 function renderASol(body){
@@ -796,6 +836,7 @@ window.rechazarASol=rechazarASol;
 function rInv(){applyBadges();
   const body=$("#ahbody");if(!body)return;
   if(aHSub==="sol"){renderASol(body);return;}
+  if(aHSub==="alq"){renderAlq(body);return;}
   const q=(document.getElementById("ahfil")?.value||"").toLowerCase();
   const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.num_serie||"")).toLowerCase().includes(q));
   let list=(window._inv||[]).filter(match);
@@ -853,25 +894,25 @@ function invFamSelChange(){const s=$("#iaFamSel"),n=$("#iaFamNew");if(n)n.style.
 window.invFamSelChange=invFamSelChange;
 function invAddForm(){
   const hayFam=[...new Set((window._inv||[]).map(familiaDe))].length>0;
-  return `<div class="row" style="background:#faf6f2;border-radius:8px;padding:12px;margin-bottom:12px"><div class="t">Añadir herramienta</div><div style="margin-top:8px"><input id="iaNom" placeholder="Nombre / tipo (ej. Taladro percutor, Andamio)" style="width:100%;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><select id="iaFamSel" onchange="invFamSelChange()" style="flex:1;min-width:150px;font-size:14px;padding:11px">${famOptions(invFam||"")}<option value="__new">➕ Nueva familia…</option></select><input id="iaFamNew" placeholder="Nueva familia (ej. Andamios)" style="flex:1;min-width:150px;font-size:14px;padding:11px;display:${hayFam?"none":"block"}"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input id="iaCod" placeholder="Código / QR (opcional)" style="flex:1;min-width:120px;font-size:14px;padding:11px"><input id="iaMar" placeholder="Marca (opcional)" style="flex:1;min-width:120px;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input id="iaSerie" placeholder="Nº de serie (opcional)" style="flex:2;min-width:120px;font-size:14px;padding:11px"><input id="iaCant" type="number" min="1" value="1" title="Nº de unidades" style="width:90px;font-size:14px;padding:11px"></div><p class="hint" style="margin:8px 0 0">Nº de unidades: crea varias de golpe. Con código, se numeran (código-1, código-2…).</p><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="toggleInvAdd()">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="addHerr()">Guardar</button></div></div>`;
+  return `<div class="row" style="background:#faf6f2;border-radius:8px;padding:12px;margin-bottom:12px"><div class="t">Añadir herramienta</div><div style="margin-top:8px"><input id="iaNom" placeholder="Nombre / tipo (ej. Taladro percutor, Andamio)" style="width:100%;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><select id="iaFamSel" onchange="invFamSelChange()" style="flex:1;min-width:150px;font-size:14px;padding:11px">${famOptions(invFam||"")}<option value="__new">➕ Nueva familia…</option></select><input id="iaFamNew" placeholder="Nueva familia (ej. Andamios)" style="flex:1;min-width:150px;font-size:14px;padding:11px;display:${hayFam?"none":"block"}"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input id="iaCod" placeholder="Código / QR (opcional)" style="flex:1;min-width:120px;font-size:14px;padding:11px"><input id="iaMar" placeholder="Marca (opcional)" style="flex:1;min-width:120px;font-size:14px;padding:11px"></div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input id="iaSerie" placeholder="Nº de serie (opcional)" style="flex:2;min-width:120px;font-size:14px;padding:11px"><input id="iaCant" type="number" min="1" value="1" title="Nº de unidades" style="width:90px;font-size:14px;padding:11px"></div><label style="display:flex;gap:8px;align-items:center;margin-top:10px;text-transform:none;font-size:13px"><input type="checkbox" id="iaAlq" style="width:auto" onchange="document.getElementById('iaAlqBox').style.display=this.checked?'block':'none'"> Es maquinaria <b>alquilada</b> a un externo</label><div id="iaAlqBox" style="display:none">${alqCampos("ia","",{})}</div><p class="hint" style="margin:8px 0 0">Nº de unidades: crea varias de golpe. Con código, se numeran (código-1, código-2…).</p><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="toggleInvAdd()">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="addHerr()">Guardar</button></div></div>`;
 }
 async function addHerr(){
   const nom=($("#iaNom")?.value||"").trim();if(!nom){flashInput("iaNom");return msg("#hErr","Pon el nombre de la herramienta.",true);}
   let fam=($("#iaFamSel")?.value||"");if(fam==="__new"||!fam)fam=($("#iaFamNew")?.value||"").trim();
   const cod=($("#iaCod")?.value||"").trim(),mar=($("#iaMar")?.value||"").trim(),serie=($("#iaSerie")?.value||"").trim();
   const cant=Math.max(1,parseInt($("#iaCant")?.value||"1",10)||1);
-  const rows=[];for(let i=0;i<cant;i++){rows.push({nombre:nom,categoria:fam||null,codigo:(cant>1&&cod)?(cod+"-"+(i+1)):(cod||null),marca:mar||null,num_serie:serie||null,estado:"disponible"});}
+  const rows=[];for(let i=0;i<cant;i++){rows.push({nombre:nom,categoria:fam||null,codigo:(cant>1&&cod)?(cod+"-"+(i+1)):(cod||null),marca:mar||null,num_serie:serie||null,estado:"disponible",...alqDatos("ia","")});}
   const r=await db.from("herramientas").insert(rows);if(r.error)return msg("#hErr",r.error.message,true);
   invAddOpen=false;if(fam)invFam=fam;msg("#hOk","✅ "+cant+" unidad"+(cant>1?"es":"")+" añadida"+(cant>1?"s":"")+".");await refreshInv();
 }
 window.addHerr=addHerr;
 function invEditForm(h){
-  return `<div style="margin-top:9px;border-top:1px dashed var(--line);padding-top:9px"><input id="ieNom${h.id}" value="${esc(h.nombre||"")}" placeholder="Nombre / tipo" style="width:100%;font-size:14px;padding:10px"><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><select id="ieFam${h.id}" style="flex:1;min-width:130px;font-size:14px;padding:10px">${famOptions(familiaDe(h))}</select><select id="ieEst${h.id}" style="flex:1;min-width:130px;font-size:14px;padding:10px">${["disponible","en_uso","reparacion","baja"].map(e=>`<option value="${e}"${h.estado===e?" selected":""}>${e}</option>`).join("")}</select></div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><input id="ieCod${h.id}" value="${esc(h.codigo||"")}" placeholder="Código" style="flex:1;min-width:110px;font-size:14px;padding:10px"><input id="ieMar${h.id}" value="${esc(h.marca||"")}" placeholder="Marca" style="flex:1;min-width:110px;font-size:14px;padding:10px"></div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><input id="ieSerie${h.id}" value="${esc(h.num_serie||"")}" placeholder="Nº serie" style="flex:1;min-width:110px;font-size:14px;padding:10px"><input id="ieFoto${h.id}" value="${esc(h.foto_url||"")}" placeholder="URL foto (opcional)" style="flex:2;min-width:110px;font-size:14px;padding:10px"></div><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setInvEdit(null)">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="saveHerr(${h.id})">Guardar cambios</button></div></div>`;
+  return `<div style="margin-top:9px;border-top:1px dashed var(--line);padding-top:9px"><input id="ieNom${h.id}" value="${esc(h.nombre||"")}" placeholder="Nombre / tipo" style="width:100%;font-size:14px;padding:10px"><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><select id="ieFam${h.id}" style="flex:1;min-width:130px;font-size:14px;padding:10px">${famOptions(familiaDe(h))}</select><select id="ieEst${h.id}" style="flex:1;min-width:130px;font-size:14px;padding:10px">${["disponible","en_uso","reparacion","baja"].map(e=>`<option value="${e}"${h.estado===e?" selected":""}>${e}</option>`).join("")}</select></div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><input id="ieCod${h.id}" value="${esc(h.codigo||"")}" placeholder="Código" style="flex:1;min-width:110px;font-size:14px;padding:10px"><input id="ieMar${h.id}" value="${esc(h.marca||"")}" placeholder="Marca" style="flex:1;min-width:110px;font-size:14px;padding:10px"></div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><input id="ieSerie${h.id}" value="${esc(h.num_serie||"")}" placeholder="Nº serie" style="flex:1;min-width:110px;font-size:14px;padding:10px"><input id="ieFoto${h.id}" value="${esc(h.foto_url||"")}" placeholder="URL foto (opcional)" style="flex:2;min-width:110px;font-size:14px;padding:10px"></div><label style="display:flex;gap:8px;align-items:center;margin-top:10px;text-transform:none;font-size:13px"><input type="checkbox" id="ieAlq${h.id}" style="width:auto" ${h.alquilada?"checked":""} onchange="document.getElementById('ieAlqBox${h.id}').style.display=this.checked?'block':'none'"> Alquilada a un externo</label><div id="ieAlqBox${h.id}" style="display:${h.alquilada?"block":"none"}">${alqCampos("ie",h.id,h)}</div><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setInvEdit(null)">Cancelar</button><button class="rowbtn blue" style="flex:1" onclick="saveHerr(${h.id})">Guardar cambios</button></div></div>`;
 }
 async function saveHerr(id){
   const g=s=>($("#"+s+id)?.value||"").trim();
   const nombre=g("ieNom");if(!nombre){flashInput("ieNom"+id);return msg("#hErr","El nombre no puede quedar vacío.",true);}
-  const upd={nombre:nombre,categoria:g("ieFam")||null,estado:g("ieEst")||"disponible",codigo:g("ieCod")||null,marca:g("ieMar")||null,num_serie:g("ieSerie")||null,foto_url:g("ieFoto")||null};
+  const upd={nombre:nombre,categoria:g("ieFam")||null,estado:g("ieEst")||"disponible",codigo:g("ieCod")||null,marca:g("ieMar")||null,num_serie:g("ieSerie")||null,foto_url:g("ieFoto")||null,...alqDatos("ie",id)};
   const r=await db.from("herramientas").update(upd).eq("id",id);if(r.error)return msg("#hErr",r.error.message,true);
   invEditId=null;msg("#hOk","✅ Cambios guardados.");await refreshInv();
 }
@@ -1022,7 +1063,7 @@ function fHora(ts){return ts?new Date(ts).toLocaleTimeString("es-ES",{hour:"2-di
 function fDur(ms){if(!ms||ms<0)return "";const m=Math.round(ms/60000);return Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m";}
 function aInf(){
   const lim=adminRol==="herr";const ma=mesAnterior();const [y,m]=ma.split("-");
-  $("#app").innerHTML=`<div class="card"><h2>Informe mensual</h2><p class="hint">Por defecto sale el <b>mes anterior (${MESES[+m-1]} ${y})</b>, listo para imprimir o descargar. Incluye también lo archivado.</p><label>Mes</label><input type="month" id="infMes" value="${ma}" onchange="cargarInf()"><div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">${lim?'':'<label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infFic" checked style="width:auto" onchange="pintarInf()"> Fichajes y vacaciones</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infVeh" checked style="width:auto" onchange="pintarInf()"> Vehículos</label>'}<label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infHerr" checked style="width:auto" onchange="pintarInf()"> Herramientas</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infEpi" checked style="width:auto" onchange="pintarInf()"> EPIs</label></div><div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="imprimirInf()">🖨 PDF / Imprimir</button><button class="rowbtn grn" style="flex:1" onclick="excelInf()">📥 Excel</button></div><div id="infMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><div id="infPrev" class="rep repwrap"><p class="empty">Cargando…</p></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Informe mensual</h2><p class="hint">Por defecto sale el <b>mes anterior (${MESES[+m-1]} ${y})</b>, listo para imprimir o descargar. Incluye también lo archivado.</p><label>Mes</label><input type="month" id="infMes" value="${ma}" onchange="cargarInf()"><div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">${lim?'':'<label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infFic" checked style="width:auto" onchange="pintarInf()"> Fichajes y vacaciones</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infVeh" checked style="width:auto" onchange="pintarInf()"> Vehículos</label>'}<label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infHerr" checked style="width:auto" onchange="pintarInf()"> Herramientas</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infEpi" checked style="width:auto" onchange="pintarInf()"> EPIs</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="infAlq" checked style="width:auto" onchange="pintarInf()"> Alquileres</label></div><div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="imprimirInf()">🖨 PDF / Imprimir</button><button class="rowbtn grn" style="flex:1" onclick="excelInf()">📥 Excel</button></div><div id="infMsg" class="hint" style="margin-top:8px"></div></div><div class="card"><div id="infPrev" class="rep repwrap"><p class="empty">Cargando…</p></div></div>`;
   cargarInf();
 }
 window.aInf=aInf;
@@ -1046,7 +1087,8 @@ async function cargarInf(){
   const hm={};(hs.data||[]).forEach(h=>hm[h.id]=h.nombre+(h.codigo?" ("+h.codigo+")":""));
   const em={};(ep.data||[]).forEach(x=>em[x.id]=x.nombre);
   const epiU={};[...(e1.data||[]),...(e2.data||[])].forEach(x=>epiU[x.id]=x);
-  window._inf={mes:v,titulo:MESES[m-1]+" "+y,fic:fic.data||[],veh:veh.data||[],mov:mov.data||[],epi:Object.values(epiU).sort((p,q)=>String(p.created_at).localeCompare(String(q.created_at))),vac:vac.data||[],hm,em};
+  const al=await db.from("herramientas").select("nombre,codigo,proveedor,contrato_ref,alquiler_inicio,alquiler_fin,alquiler_devuelto_at,precio_dia,obra_actual,estado").eq("alquilada",true);
+  window._inf={alq:al.error?[]:al.data,ini,fin,mes:v,titulo:MESES[m-1]+" "+y,fic:fic.data||[],veh:veh.data||[],mov:mov.data||[],epi:Object.values(epiU).sort((p,q)=>String(p.created_at).localeCompare(String(q.created_at))),vac:vac.data||[],hm,em};
   pintarInf();
 }
 window.cargarInf=cargarInf;
@@ -1081,6 +1123,8 @@ function infDatos(){
   if(on("infVeh"))out.sec.push({t:"Vehículos",h:["Conductor","Vehículo","Matrícula","Cogido","Devuelto","Duración"],r:d.veh.map(r=>{const v=vehMap[r.vehiculo_id];return [condMap[r.conductor_id]||"#"+r.conductor_id,v?up(v.nombre):"#"+r.vehiculo_id,v?up(v.matricula):"",fmt(r.created_at),r.fecha_devolucion?fmt(r.fecha_devolucion):"Sin devolver",r.fecha_devolucion?fDur(new Date(r.fecha_devolucion)-new Date(r.created_at)):""];})});
   if(on("infHerr"))out.sec.push({t:"Herramientas · movimientos",h:["Fecha","Herramienta","Movimiento","Trabajador","Obra","Nota"],r:d.mov.map(x=>[fmt(x.created_at),d.hm[x.herramienta_id]||x.herramienta_nombre||"#"+x.herramienta_id,movLabel(x.tipo),condMap[x.trabajador_id]||"—",x.obra||"",x.nota||""])});
   if(on("infEpi"))out.sec.push({t:"EPIs y ropa",h:["Trabajador","Artículo","Talla","Uds","Estado","Solicitado","Entregado","Firmado"],r:d.epi.map(s=>[condMap[s.trabajador_id]||"#"+s.trabajador_id,nomE(s),s.talla||"",s.cantidad||1,s.estado,fDia(s.fecha_solicitud||s.created_at),fDia(s.fecha_entrega),fDia(s.fecha_firma)])});
+  if(on("infAlq")){const r=[];(d.alq||[]).forEach(h=>{if(!h.alquiler_inicio)return;const a0=new Date(h.alquiler_inicio+"T00:00:00");const fin=h.alquiler_devuelto_at?new Date(h.alquiler_devuelto_at):new Date();const desde=a0>d.ini?a0:d.ini;const ult=new Date(d.fin.getTime()-1);const hasta=fin<ult?fin:ult;const dias=Math.floor((new Date(hasta.toDateString())-new Date(desde.toDateString()))/86400000)+1;if(dias<=0)return;const pd=h.precio_dia!=null?Number(h.precio_dia):null;r.push([h.nombre+(h.codigo?" ("+h.codigo+")":""),h.proveedor||"",h.contrato_ref||"",fDia(h.alquiler_inicio+"T12:00:00"),h.alquiler_fin?fDia(h.alquiler_fin+"T12:00:00"):"",h.alquiler_devuelto_at?fDia(h.alquiler_devuelto_at):"En curso",h.obra_actual||"",dias,pd!=null?pd.toFixed(2)+" €":"",pd!=null?(pd*dias).toFixed(2)+" €":""]);});
+    out.sec.push({t:"Maquinaria alquilada",h:["Máquina","Proveedor","Contrato","Inicio","Fin previsto","Devuelta","Obra actual","Días en el mes","€/día","Coste del mes"],r});}
   return out;
 }
 function infHTML(o){
@@ -1125,7 +1169,7 @@ window.devolverAviso=devolverAviso;
 window.irDevolver=irDevolver;
 function applyBadges(){
   setBtnBadge(document.querySelector('#tabs button[data-t="veh"]'),_bc.veh||0);renderVehAviso();
-  setBtnBadge(document.querySelector('#tabs button[data-t="herr"]'),_bc.herr);
+  setBtnBadge(document.querySelector('#tabs button[data-t="herr"]'),_bc.herr+(_bc.alq||0));setBtnBadge($("#ial"),_bc.alq||0);
   setBtnBadge(document.querySelector('#tabs button[data-t="epi"]'),_bc.epi);
   setBtnBadge($("#hsol"),_bc.herr);setBtnBadge($("#is"),_bc.herr);
   setBtnBadge($("#eas"),worker?0:_bc.epi);setBtnBadge($("#em"),worker?_bc.epi:0);
@@ -1137,7 +1181,9 @@ async function refreshBadges(){
     const H=()=>db.from("herramienta_solicitudes").select("id",{count:"exact",head:true}).eq("estado","pendiente");
     if(!worker){
       const [h,e]=await Promise.all([cnt(H()),cnt(db.from("epi_solicitudes").select("id",{count:"exact",head:true}).eq("estado","solicitado"))]);
-      _bc={herr:h,epi:e,veh:0};
+      const d2=new Date();d2.setDate(d2.getDate()+2);const lim2=d2.getFullYear()+"-"+String(d2.getMonth()+1).padStart(2,"0")+"-"+String(d2.getDate()).padStart(2,"0");
+      const a=await cnt(db.from("herramientas").select("id",{count:"exact",head:true}).eq("alquilada",true).neq("estado","devuelto_prov").lte("alquiler_fin",lim2));
+      _bc={herr:h,epi:e,veh:0,alq:a};
     }else{
       const h=worker.puede_herr?await cnt(H()):0;
       const e=await cnt(db.from("epi_solicitudes").select("id",{count:"exact",head:true}).eq("trabajador_id",worker.id).eq("estado","entregado"));
