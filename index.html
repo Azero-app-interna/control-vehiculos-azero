@@ -89,6 +89,13 @@ a.maps{color:var(--accent);text-decoration:none;font-size:12px}
 .subtabs{flex-wrap:wrap}
 .subtabs:has(> button:nth-child(4)) button{flex:1 1 calc(50% - 4px)}
 .subtabs:has(> button:nth-child(5)) button{flex:1 1 calc(33.33% - 6px)}
+.hinfo{display:flex;gap:10px;align-items:center;margin-top:6px}
+.hthumb{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;flex:none;background:#f0eeeb}
+.hinfo-r{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+.sn{display:inline-block;background:#1f2328;color:#fff;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:700;padding:4px 9px;border-radius:6px;letter-spacing:.4px;overflow-wrap:anywhere}
+.sn.none{background:#f0eeeb;color:#6b6862;font-family:inherit;font-size:11px}
+#fotoView{position:fixed;inset:0;background:#000d;z-index:99;display:flex;align-items:center;justify-content:center;cursor:zoom-out}
+#fotoView img{max-width:94vw;max-height:88vh;border-radius:8px}
 .archbox{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#faf6f2;border:1px dashed var(--line);border-radius:8px;padding:10px;margin:8px 0}
 .archbox span{font-size:12px;font-weight:800;color:#6b6862;text-transform:uppercase}
 .archbox input{width:auto;flex:1;min-width:140px;padding:8px;font-size:14px}
@@ -398,7 +405,7 @@ async function pHerr(){
    ?`<button id="ha" onclick="hSet('almacen')">Almacén</button><button id="ho" onclick="hSet('obra')">En obra</button><button id="hr" onclick="hSet('reparacion')">Reparación</button><button id="hsol" onclick="hSet('solicitudes')">Solicitudes</button>`
    :`<button id="ha" onclick="hSet('almacen')">Inventario</button><button id="hms" onclick="hSet('missol')">Mis solicitudes</button>`;
   const obraSel=g?`<div id="hobrawrap" style="display:none"><label>⚠ Obra obligatoria — elígela antes de coger</label><select id="obra"><option value="">— Selecciona obra —</option><option value="Taller">Taller</option>${obraOpts()}</select></div>`:"";
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs">${subtabs}</div>${obraSel}<input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><div class="subtabs">${subtabs}</div>${obraSel}<input id="hfil" style="margin-top:10px" placeholder="Buscar por nombre, código, marca o nº serie…" oninput="renderHerr()"><div id="hbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div>`;
   await refreshHerr();hSet(g&&(window._hsol||[]).some(s=>s.estado==="pendiente")?"solicitudes":"almacen");
 }
 function hSet(s){hSub=s;repairId=null;hObra=null;moveId=null;hDetail=null;hFam=null;hReqTipo=null;const map={almacen:"ha",obra:"ho",reparacion:"hr",solicitudes:"hsol",missol:"hms"};["ha","ho","hr","hsol","hms"].forEach(id=>{const b=$("#"+id);if(b)b.classList.toggle("active",id===map[s]);});renderHerr();}
@@ -414,7 +421,7 @@ window.backToFam=backToFam;
 function backToTipos(){hDetail=null;repairId=null;renderHerr();}
 window.backToTipos=backToTipos;
 function backBar(label,fn){return `<button class="backbar" onclick="${fn}"><span class="ar">‹</span> ${esc(up(label))}</button>`;}
-function unitRow(h){let a="";if(repairId===h.id){a=repairForm(h.id);}else if(h.estado==="disponible"){a=`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="en_uso"){const mine=h.responsable_id===worker.id?" (tú)":"";a=`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>${moveId===h.id?moveForm(h.id):`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn blue" style="flex:1" onclick="setMove(${h.id})">Cambiar obra</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}`;}else if(h.estado==="reparacion"){a=`<div class="d">🔧 En reparación${h.nota_reparacion?" — "+esc(h.nota_reparacion):""}</div>`;}else{a='<div class="d">Dada de baja</div>';}return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${a}</div>`;}
+function unitRow(h){let a="";if(repairId===h.id){a=repairForm(h.id);}else if(h.estado==="disponible"){a=`<div style="display:flex;gap:8px"><button class="rowbtn blue" style="flex:1" onclick="cogerHerr(${h.id})">Coger</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`;}else if(h.estado==="en_uso"){const mine=h.responsable_id===worker.id?" (tú)":"";a=`<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${mine}${h.obra_actual?" · "+esc(h.obra_actual):""}</div>${moveId===h.id?moveForm(h.id):`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="rowbtn grn" style="flex:1" onclick="devolverHerr(${h.id})">Devolver</button><button class="rowbtn blue" style="flex:1" onclick="setMove(${h.id})">Cambiar obra</button><button class="rowbtn" style="flex:1" onclick="setRepair(${h.id})">Avería</button></div>`}`;}else if(h.estado==="reparacion"){a=`<div class="d">🔧 En reparación${h.nota_reparacion?" — "+esc(h.nota_reparacion):""}</div>`;}else{a='<div class="d">Dada de baja</div>';}return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${herrInfo(h)}${a}</div>`;}
 async function refreshHerr(){const {data,error}=await db.from("herramientas").select("*").order("nombre");if(error){$("#hbody").innerHTML='<p class="empty">'+esc(error.message)+'</p>';return;}herrList=data;
   try{
     if(esGestor()){const s=await db.from("herramienta_solicitudes").select("*").order("created_at",{ascending:false}).limit(200);window._hsol=s.error?[]:s.data;}
@@ -422,7 +429,7 @@ async function refreshHerr(){const {data,error}=await db.from("herramientas").se
   }catch(e){}
   renderHerr();}
 function estBadge(e){return e==="disponible"?'<span class="badge b-ok">Disponible</span>':e==="en_uso"?'<span class="badge b-use">En uso</span>':e==="reparacion"?'<span class="badge b-rep">Reparación</span>':'<span class="badge b-rep">Baja</span>';}
-function hMeta(h){return `<div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>`;}
+function hMeta(h){return `<div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}${h.categoria?" · "+esc(h.categoria):""}</div>`+herrInfo(h);}
 function repairForm(id){return `<div style="margin-top:9px"><input id="rep${id}" placeholder="Motivo del fallo (obligatorio, ej. no arranca)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="reportAveria(${id})">Enviar a reparación</button></div></div>`;}
 function unitRowView(h){
   let a="";
@@ -431,7 +438,7 @@ function unitRowView(h){
   else if(h.estado==="en_uso"){a=`<div class="d">En obra: ${esc(h.obra_actual||"—")}</div><button class="rowbtn" onclick="setRepair(${h.id})">Avería</button>`;}
   else if(h.estado==="reparacion"){a='<div class="d">🔧 En reparación</div>';}
   else{a='<div class="d">Dada de baja</div>';}
-  return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${a}</div>`;
+  return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.nombre)}${h.marca?" · "+esc(h.marca):""}</div>${herrInfo(h)}${a}</div>`;
 }
 function openSolicitar(enc){hReqTipo=decodeURIComponent(enc);renderHerr();}
 window.openSolicitar=openSolicitar;
@@ -480,7 +487,7 @@ function renderHerr(){applyBadges();
   const q=($("#hfil")?.value||"").toLowerCase();
   const g=esGestor();
   const obw=$("#hobrawrap");if(obw)obw.style.display=(g&&hSub==="almacen"&&(q||(hFam&&hDetail)))?"block":"none";
-  const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")).toLowerCase().includes(q));
+  const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.categoria||"")+" "+(h.num_serie||"")).toLowerCase().includes(q));
   const body=$("#hbody");if(!body)return;
   if(hSub==="missol"){renderMisSol(body);return;}
   if(hSub==="solicitudes"){renderGestSol(body);return;}
@@ -523,6 +530,32 @@ function renderHerr(){applyBadges();
 }
 async function cogerHerr(id){const obra=($("#obra")?.value||"").trim();if(!obra){flashInput("obra");return msg("#hErr","Selecciona una obra (o Taller) antes de coger la herramienta.",true);}const r1=await db.from("herramientas").update({estado:"en_uso",responsable_id:worker.id,obra_actual:obra}).eq("id",id);if(r1.error)return msg("#hErr",r1.error.message,true);await db.from("herramientas_mov").insert({herramienta_id:id,trabajador_id:worker.id,tipo:"coger",obra});const os=$("#obra");if(os)os.value="";msg("#hOk","✅ Herramienta cogida para "+obra+".");await refreshHerr();}
 window.cogerHerr=cogerHerr;
+/* Nº SERIE Y FOTO DE HERRAMIENTAS */
+function herrInfo(h){
+  const priv=!worker||esGestor();
+  const foto=h.foto_url?`<img class="hthumb" src="${esc(h.foto_url)}" alt="foto" loading="lazy" onclick="verFoto(this.src)">`:"";
+  const sn=priv?(h.num_serie?`<span class="sn">Nº SERIE ${esc(h.num_serie)}</span>`:`<span class="sn none">Sin nº de serie</span>`):"";
+  const btn=priv?`<button class="rowbtn" style="margin-top:4px;padding:7px 10px" onclick="pedirFoto(${h.id})">📷 ${h.foto_url?"Cambiar foto":"Subir foto"}</button>`:"";
+  if(!foto&&!sn&&!btn)return "";
+  return `<div class="hinfo">${foto}<div class="hinfo-r">${sn}${btn}</div></div>`;
+}
+function verFoto(u){const d=document.createElement("div");d.id="fotoView";d.innerHTML=`<img src="${esc(u)}" alt="foto">`;d.onclick=()=>d.remove();document.body.appendChild(d);}
+window.verFoto=verFoto;
+function pedirFoto(id){let i=$("#fotoIn");if(!i){i=document.createElement("input");i.type="file";i.accept="image/*";i.id="fotoIn";i.style.display="none";i.onchange=()=>subirFoto(i);document.body.appendChild(i);}i.dataset.id=id;i.value="";i.click();}
+window.pedirFoto=pedirFoto;
+function reducirImg(file,max,q){return new Promise((ok,ko)=>{const url=URL.createObjectURL(file);const im=new Image();im.onload=()=>{let w=im.naturalWidth,h=im.naturalHeight;const k=Math.min(1,max/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h);URL.revokeObjectURL(url);c.toBlob(b=>b?ok(b):ko(new Error("no se pudo procesar la imagen")),"image/jpeg",q);};im.onerror=()=>{URL.revokeObjectURL(url);ko(new Error("formato de imagen no soportado"));};im.src=url;});}
+async function subirFoto(i){
+  const f=i.files&&i.files[0];const id=+i.dataset.id;if(!f||!id)return;
+  const ok=$("#hOk");if(ok){ok.textContent="📷 Subiendo foto…";ok.style.display="block";}
+  try{
+    const blob=await reducirImg(f,1280,0.82);const path="h"+id+"-"+Date.now()+".jpg";
+    const up=await db.storage.from("herramientas").upload(path,blob,{contentType:"image/jpeg",upsert:false});if(up.error)throw up.error;
+    const url=db.storage.from("herramientas").getPublicUrl(path).data.publicUrl;
+    const r=await db.from("herramientas").update({foto_url:url}).eq("id",id);if(r.error)throw r.error;
+    msg("#hOk","✅ Foto guardada.");if(worker)await refreshHerr();else await refreshInv();
+  }catch(e){msg("#hErr","No se pudo subir la foto: "+(e.message||e),true);}
+}
+
 /* OBRAS como botones + CAMBIO DE OBRA */
 let hObra=null,aObra=null,moveId=null;
 function agruparObra(list){const g={};list.forEach(h=>{const k=h.obra_actual||"Sin obra";(g[k]=g[k]||[]).push(h);});return g;}
@@ -727,7 +760,7 @@ function setAdmRepair(id){admRepairId=id;rInv();}
 window.setAdmRepair=setAdmRepair;
 function admRepairForm(id){return `<div style="margin-top:9px"><input id="arep${id}" placeholder="Motivo del fallo (obligatorio)" style="font-size:14px;padding:11px"><div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setAdmRepair(null)">Cancelar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="admAveria(${id})">Enviar a reparación</button></div></div>`;}
 async function aHerr(){
-  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><button class="rowbtn" style="width:100%" onclick="togHist('amovw',this,'📋 Ver auditoría de movimientos')">📋 Ver auditoría de movimientos</button><div id="amovw" style="display:none;margin-top:10px">${archBox('herr')}<div id="amov"><p class="empty">Cargando…</p></div></div></div>`;
+  $("#app").innerHTML=`<div class="card"><h2>Herramientas</h2><input id="ahfil" placeholder="Buscar herramienta o nº serie" oninput="rInv()"><div class="subtabs" style="margin-top:12px"><button id="ia" onclick="aHSet('almacen')">Inventario</button><button id="io" onclick="aHSet('obra')">Obras</button><button id="ir" onclick="aHSet('reparacion')">Reparar</button><button id="ib" onclick="aHSet('baja')">Baja</button><button id="is" onclick="aHSet('sol')">Solicitudes</button></div><div id="ahbody"><p class="empty">Cargando…</p></div><div id="hOk" class="ok"></div><div id="hErr" class="error"></div></div><div class="card"><h2>Auditoría de movimientos</h2><button class="rowbtn" style="width:100%" onclick="togHist('amovw',this,'📋 Ver auditoría de movimientos')">📋 Ver auditoría de movimientos</button><div id="amovw" style="display:none;margin-top:10px">${archBox('herr')}<div id="amov"><p class="empty">Cargando…</p></div></div></div>`;
   const [inv,mov]=await Promise.all([db.from("herramientas").select("*").order("nombre"),db.from("herramientas_mov").select("*").eq("archivado",false).order("created_at",{ascending:false}).limit(200)]);
   window._inv=inv.error?[]:inv.data;window._hmap={};window._inv.forEach(h=>window._hmap[h.id]=h.nombre);await loadASol();aHSet(_bc.herr>0?"sol":"almacen");
   const m=mov.error?[]:mov.data;
@@ -764,7 +797,7 @@ function rInv(){applyBadges();
   const body=$("#ahbody");if(!body)return;
   if(aHSub==="sol"){renderASol(body);return;}
   const q=(document.getElementById("ahfil")?.value||"").toLowerCase();
-  const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")).toLowerCase().includes(q));
+  const match=h=>!q||((h.nombre+" "+(h.codigo||"")+" "+(h.marca||"")+" "+(h.num_serie||"")).toLowerCase().includes(q));
   let list=(window._inv||[]).filter(match);
   if(aHSub==="almacen"){
     if(q){
@@ -776,16 +809,16 @@ function rInv(){applyBadges();
     list=list.filter(h=>h.estado==="en_uso");
     if(!list.length){body.innerHTML='<p class="empty">Ninguna herramienta en obra.</p>';return;}
     const g=agruparObra(list);
-    const fila=h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div><div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${q?" · "+esc(h.obra_actual||""):""}</div>${moveId===h.id?moveForm(h.id):`<div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="admDevolver(${h.id})">Devolver al almacén</button><button class="rowbtn blue" style="flex:1" onclick="setMove(${h.id})">Cambiar obra</button></div>`}</div>`;
+    const fila=h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div>${herrInfo(h)}<div class="d">Con: ${esc(condMap[h.responsable_id]||"—")}${q?" · "+esc(h.obra_actual||""):""}</div>${moveId===h.id?moveForm(h.id):`<div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="admDevolver(${h.id})">Devolver al almacén</button><button class="rowbtn blue" style="flex:1" onclick="setMove(${h.id})">Cambiar obra</button></div>`}</div>`;
     if(q){body.innerHTML=`<p class="count">${list.length} resultado${list.length!==1?"s":""}</p>`+list.map(fila).join("");}
     else if(!aObra||!g[aObra]){aObra=null;body.innerHTML=obraTiles(g);}
     else{body.innerHTML=backBar("Volver a obras","backToObras()")+`<div class="crumb">${esc(up(aObra))} · ${g[aObra].length} herramienta${g[aObra].length!==1?"s":""}</div>`+ordenHerr(g[aObra]).map(fila).join("");}
   }else if(aHSub==="reparacion"){
     list=list.filter(h=>h.estado==="reparacion");
-    body.innerHTML=`<p class="count">${list.length} en reparación</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div>${h.nota_reparacion?`<div class="d">⚠️ ${esc(h.nota_reparacion)}</div>`:""}<div class="d">Reportada por: ${esc(condMap[h.responsable_id]||"—")}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="admReparada(${h.id})">Marcar reparada</button><button class="rowbtn" style="flex:1" onclick="admBaja(${h.id})">Dar de baja</button></div></div>`).join(""):'<p class="empty">Nada en reparación.</p>');
+    body.innerHTML=`<p class="count">${list.length} en reparación</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div>${herrInfo(h)}${h.nota_reparacion?`<div class="d">⚠️ ${esc(h.nota_reparacion)}</div>`:""}<div class="d">Reportada por: ${esc(condMap[h.responsable_id]||"—")}</div><div style="display:flex;gap:8px"><button class="rowbtn grn" style="flex:1" onclick="admReparada(${h.id})">Marcar reparada</button><button class="rowbtn" style="flex:1" onclick="admBaja(${h.id})">Dar de baja</button></div></div>`).join(""):'<p class="empty">Nada en reparación.</p>');
   }else{
     list=list.filter(h=>h.estado==="baja");
-    body.innerHTML=`<p class="count">${list.length} de baja</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div><button class="rowbtn" onclick="admReparada(${h.id})">Reactivar al almacén</button></div>`).join(""):'<p class="empty">Ninguna herramienta de baja.</p>');
+    body.innerHTML=`<p class="count">${list.length} de baja</p>`+(list.length?list.map(h=>`<div class="row"><div class="t">${esc(up(h.nombre))} ${estBadge(h.estado)}</div><div class="m">${esc(h.codigo||"")}${h.marca?" · "+esc(h.marca):""}</div>${herrInfo(h)}<button class="rowbtn" onclick="admReparada(${h.id})">Reactivar al almacén</button></div>`).join(""):'<p class="empty">Ninguna herramienta de baja.</p>');
   }
 }
 window.rInv=rInv;
@@ -852,7 +885,7 @@ function invUnitCard(h){
   if(invEditId===h.id)foot=invEditForm(h);
   else if(invDelId===h.id)foot=`<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><span class="d" style="flex:1">¿Borrar para siempre?</span><button class="rowbtn" style="flex:1" onclick="setInvDel(null)">No</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="delHerr(${h.id})">Sí, borrar</button></div>`;
   else foot=`<div style="display:flex;gap:8px;margin-top:8px"><button class="rowbtn" style="flex:1" onclick="setInvEdit(${h.id})">✎ Editar</button><button class="rowbtn" style="flex:1;background:var(--red);color:#fff" onclick="setInvDel(${h.id})">Borrar</button></div>`;
-  return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div>${meta}${con}${foot}</div>`;
+  return `<div class="row"><div class="t">${esc(up(h.codigo||h.nombre))} ${estBadge(h.estado)}</div>${meta}${herrInfo(h)}${con}${foot}</div>`;
 }
 function renderInv(body){
   const all=window._inv||[];
